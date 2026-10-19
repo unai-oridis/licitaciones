@@ -1,6 +1,9 @@
 // Descarga las licitaciones de la Plataforma de Contratación del Sector Público
-// (perfiles alojados + plataformas autonómicas agregadas), se queda solo con las
-// que están en plazo y guarda el resultado en public/data/licitaciones.json.
+// (perfiles alojados + plataformas autonómicas agregadas) en todos sus estados y guarda:
+//   public/data/indice.json          resumen, catálogos y lista de archivos
+//   public/data/abiertas.json        licitaciones en plazo (lo que la web carga al entrar)
+//   public/data/historico-AAAA-MM-N.json  resto de estados, por mes de última actualización
+// Las que no están en plazo se conservan MESES_HISTORICO meses.
 //
 // Funciona de forma incremental:
 // - La primera vez descarga los ficheros ZIP mensuales de los últimos MESES_INICIALES meses
@@ -31,8 +34,10 @@ const FEEDS = [
   },
 ];
 
-const RUTA_DATOS = process.env.RUTA_DATOS || 'public/data/licitaciones.json';
-const MESES_INICIALES = Number(process.env.MESES_INICIALES || 3);
+const DIR_DATOS = process.env.DIR_DATOS || 'public/data';
+const MESES_INICIALES = Number(process.env.MESES_INICIALES || 6);
+const MESES_HISTORICO = Number(process.env.MESES_HISTORICO || 6);
+const MAX_POR_ARCHIVO = 12000; // licitaciones por archivo de histórico (Cloudflare admite hasta 25 MB por archivo)
 const DIAS_RESPALDO = 7; // si no hay ZIP disponible, días que se leen página a página
 const MAX_PAGINAS = Number(process.env.MAX_PAGINAS || 400);
 const MAX_MINUTOS = Number(process.env.MAX_MINUTOS || 300); // margen bajo el límite de GitHub
@@ -54,6 +59,16 @@ const PROCEDIMIENTOS = {
   '8': 'Asociación para la innovación', '9': 'Derivado de acuerdo marco', '10': 'Licitación con negociación',
   '11': 'Otros', '100': 'Normas internas', '999': 'Otros',
 };
+const RESULTADOS = {
+  '1': 'Adjudicado provisionalmente', '2': 'Adjudicado definitivamente', '3': 'Desierto provisionalmente',
+  '4': 'Desierto definitivamente', '5': 'Desistimiento', '6': 'Renuncia', '7': 'Desierto',
+  '8': 'Adjudicado', '9': 'Formalizado',
+};
+const SIN_ADJUDICAR = new Set(['3', '4', '5', '6', '7']);
+// Grupos que ve el usuario
+const GRUPOS = {
+  A: 'En plazo', P: 'Anuncio previo', E: 'En evaluación', J: 'Adjudicada', F: 'Formalizada', N: 'Anulada o desierta',
+};
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -65,7 +80,7 @@ const parser = new XMLParser({
   processEntities: true,
   htmlEntities: true,
   isArray: (nombre) =>
-    ['entry', 'deleted-entry', 'link', 'ProcurementProjectLot', 'RequiredCommodityClassification'].includes(nombre),
+    ['entry', 'deleted-entry', 'link', 'ProcurementProjectLot', 'RequiredCommodityClassification', 'TenderResult', 'WinningParty'].includes(nombre),
 });
 
 // ---------- utilidades ----------
@@ -138,6 +153,26 @@ function provinciaDe(cfs) {
   return cpOrgano || '99';
 }
 
+function adjudicacionDe(cfs) {
+  const ad = [];
+  let rc = '';
+  let fa = '';
+  for (const r of cfs.TenderResult || []) {
+    const codigo = txt(r.ResultCode);
+    if (codigo && !rc) rc = codigo;
+    const fecha = txt(r.AwardDate).slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fecha) && fecha > fa) fa = fecha;
+    const ofertas = parseInt(txt(r.ReceivedTenderQuantity), 10);
+    const total = r.AwardedTenderedProject?.LegalMonetaryTotal || {};
+    const importe = num(total.TaxExclusiveAmount) ?? num(total.PayableAmount);
+    for (const w of r.WinningParty || []) {
+      const nombre = txt(w.PartyName?.Name);
+      if (nombre) ad.push([nombre, importe, Number.isFinite(ofertas) ? ofertas : null]);
+    }
+  }
+  return { rc, fa, ad };
+}
+
 function leerEntrada(e, fuente) {
   const cfs = e.ContractFolderStatus;
   if (!cfs) return null;
@@ -152,6 +187,7 @@ function leerEntrada(e, fuente) {
 
   const enlace = (e.link || []).find((l) => l['@_href'] && (!l['@_rel'] || l['@_rel'] === 'alternate'));
   const presupuesto = pp.BudgetAmount || {};
+  const { rc, fa, ad } = adjudicacionDe(cfs);
 
   return {
     id: txt(e.id).replace(/^https?:\/\/[^/]+\/sindicacion\//, ''),
@@ -170,6 +206,10 @@ function leerEntrada(e, fuente) {
       u: enlace ? enlace['@_href'] : '',
       fu: fuente === 'estado' ? 'E' : 'A',
       a: txt(e.updated).slice(0, 10),
+      s: txt(cfs.ContractFolderStatusCode),
+      ...(rc ? { rc } : {}),
+      ...(fa ? { fa } : {}),
+      ...(ad.length ? { ad: ad.slice(0, 5), nad: ad.length } : {}),
     },
   };
 }
@@ -186,9 +226,29 @@ function horaMadrid(d) {
 const AHORA_MADRID = horaMadrid(AHORA);
 const LIMITE_SIN_PLAZO = new Date(AHORA.getTime() - DIAS_SIN_PLAZO * 864e5).toISOString().slice(0, 10);
 
+const LIMITE_HISTORICO = new Date(Date.UTC(AHORA.getUTCFullYear(), AHORA.getUTCMonth() - MESES_HISTORICO, AHORA.getUTCDate()))
+  .toISOString().slice(0, 10);
+
 function sigueAbierta(item) {
   if (item.f) return item.f >= AHORA_MADRID;
   return item.a >= LIMITE_SIN_PLAZO;
+}
+
+function grupoDe(item) {
+  switch (item.s) {
+    case 'PRE': return 'P';
+    case 'PUB': return sigueAbierta(item) ? 'A' : 'E'; // plazo vencido: pendiente de adjudicar
+    case 'EV': return 'E';
+    case 'ADJ': return SIN_ADJUDICAR.has(item.rc) ? 'N' : 'J';
+    case 'RES': return SIN_ADJUDICAR.has(item.rc) ? 'N' : 'F';
+    case 'ANUL': return 'N';
+    default: return 'E';
+  }
+}
+
+// Se conservan las abiertas y, del resto, las actualizadas en los últimos MESES_HISTORICO meses.
+function conservar(item) {
+  return item.g === 'A' || item.a >= LIMITE_HISTORICO;
 }
 
 // ---------- lectura de páginas ----------
@@ -205,9 +265,8 @@ function procesarPagina(xml, feed, cambios, desde, estado) {
     masAntigua = Math.min(masAntigua, ts);
     if (ts <= desde) continue;
     if (ts > ms(estado.masReciente)) estado.masReciente = actualizado;
-    let leida = leerEntrada(e, feed.clave);
+    const leida = leerEntrada(e, feed.clave);
     if (!leida || !leida.id) continue;
-    if (leida.estado !== 'PUB') leida = { id: leida.id, estado: leida.estado }; // no guardar lo que no hace falta
     const previo = cambios.get(leida.id);
     if (!previo || ts > previo.ts) cambios.set(leida.id, { ts, leida });
   }
@@ -308,21 +367,77 @@ async function cargaInicialZip(feed, cambios, estado) {
 
 // ---------- programa principal ----------
 
+const lineas = (items) => items.map((x) => JSON.stringify(x)).join(',\n');
+
+async function leerJSON(ruta) {
+  return JSON.parse(await fs.readFile(ruta, 'utf8'));
+}
+
 async function cargarAnterior() {
+  // Formato actual: indice.json + archivos
   try {
-    const datos = JSON.parse(await fs.readFile(RUTA_DATOS, 'utf8'));
-    return { meta: datos.meta || {}, items: datos.items || [] };
-  } catch {
-    return { meta: {}, items: [] };
-  }
+    const indice = await leerJSON(path.join(DIR_DATOS, 'indice.json'));
+    const archivos = [indice.archivos?.abiertas?.f, ...(indice.archivos?.historico || []).map((h) => h.f)].filter(Boolean);
+    const items = [];
+    for (const f of archivos) items.push(...((await leerJSON(path.join(DIR_DATOS, f))).items || []));
+    return { meta: indice, items };
+  } catch {}
+  // Formato antiguo (solo abiertas): se reaprovecha
+  try {
+    const viejo = await leerJSON(path.join(DIR_DATOS, 'licitaciones.json'));
+    return { meta: viejo.meta || {}, items: (viejo.items || []).map((x) => ({ s: 'PUB', ...x })) };
+  } catch {}
+  return { meta: {}, items: [] };
 }
 
 async function guardar(meta, items) {
+  await fs.mkdir(DIR_DATOS, { recursive: true });
   items.sort((a, b) => (a.id < b.id ? -1 : 1));
-  // Una licitación por línea: así el historial de git ocupa poco.
-  const texto = `{"meta":${JSON.stringify(meta)},\n"items":[\n${items.map((x) => JSON.stringify(x)).join(',\n')}\n]}\n`;
-  await fs.mkdir(path.dirname(RUTA_DATOS), { recursive: true });
-  await fs.writeFile(RUTA_DATOS, texto);
+  const escritos = new Set(['indice.json']);
+
+  // Abiertas: una licitación por línea, así el historial de git ocupa poco.
+  const abiertas = items.filter((x) => x.g === 'A');
+  await fs.writeFile(path.join(DIR_DATOS, 'abiertas.json'), `{"items":[\n${lineas(abiertas)}\n]}\n`);
+  escritos.add('abiertas.json');
+
+  // Histórico por mes de última actualización, en trozos de MAX_POR_ARCHIVO.
+  const porMes = new Map();
+  for (const x of items) {
+    if (x.g === 'A') continue;
+    const mes = x.a.slice(0, 7);
+    if (!porMes.has(mes)) porMes.set(mes, []);
+    porMes.get(mes).push(x);
+  }
+  const historico = [];
+  for (const mes of [...porMes.keys()].sort().reverse()) {
+    const lista = porMes.get(mes);
+    for (let k = 0; k * MAX_POR_ARCHIVO < lista.length; k++) {
+      const trozo = lista.slice(k * MAX_POR_ARCHIVO, (k + 1) * MAX_POR_ARCHIVO);
+      const f = `historico-${mes}-${k + 1}.json`;
+      await fs.writeFile(path.join(DIR_DATOS, f), `{"items":[\n${lineas(trozo)}\n]}\n`);
+      escritos.add(f);
+      const grupos = {};
+      for (const x of trozo) grupos[x.g] = (grupos[x.g] || 0) + 1;
+      historico.push({ f, mes, n: trozo.length, grupos });
+    }
+  }
+
+  const totales = {};
+  for (const x of items) totales[x.g] = (totales[x.g] || 0) + 1;
+  const indice = {
+    ...meta,
+    total: abiertas.length,
+    totales,
+    mesesHistorico: MESES_HISTORICO,
+    archivos: { abiertas: { f: 'abiertas.json', n: abiertas.length }, historico },
+  };
+  await fs.writeFile(path.join(DIR_DATOS, 'indice.json'), JSON.stringify(indice) + '\n');
+
+  // Borrar archivos de datos que ya no se usan (incluido el formato antiguo).
+  for (const f of await fs.readdir(DIR_DATOS)) {
+    if (f.endsWith('.json') && !escritos.has(f)) await fs.rm(path.join(DIR_DATOS, f));
+  }
+  return { abiertas: abiertas.length, historico: items.length - abiertas.length, archivos: historico.length + 2 };
 }
 
 async function main() {
@@ -344,21 +459,18 @@ async function main() {
       }
       log(`${feed.nombre}: leyendo novedades desde ${desde}`);
       const paginas = await recorrerFeed(feed, desde, cambios, estado);
-      const masReciente = estado.masReciente;
       let altas = 0;
       let bajas = 0;
       for (const [id, { leida }] of cambios) {
-        const abierta = leida && leida.estado === 'PUB' && sigueAbierta(leida.item);
-        if (abierta) {
-          const antes = porId.get(id);
-          porId.set(id, { id, ...leida.item, fp: antes?.fp || leida.item.a });
-          if (!antes) altas++;
-        } else if (porId.delete(id)) {
-          bajas++;
-        }
+        if (!leida) { if (porId.delete(id)) bajas++; continue; }
+        const antes = porId.get(id);
+        const item = { id, ...leida.item, fp: antes?.fp || leida.item.a };
+        item.g = grupoDe(item);
+        if (conservar(item)) { porId.set(id, item); if (!antes) altas++; }
+        else if (porId.delete(id)) bajas++;
       }
-      fuentesMeta[feed.clave] = { nombre: feed.nombre, hasta: masReciente, ultimaLectura: AHORA.toISOString(), paginas };
-      log(`  ${paginas} páginas leídas · ${cambios.size} con cambios · ${altas} nuevas abiertas · ${bajas} cerradas`);
+      fuentesMeta[feed.clave] = { nombre: feed.nombre, hasta: estado.masReciente, ultimaLectura: AHORA.toISOString(), paginas };
+      log(`  ${paginas} páginas leídas · ${cambios.size} con cambios · ${altas} nuevas · ${bajas} retiradas`);
     } catch (e) {
       fallos++;
       log(`  ERROR en ${feed.clave}: ${e.message}. Se mantienen los datos anteriores de esta fuente.`);
@@ -370,22 +482,26 @@ async function main() {
     process.exit(1);
   }
 
-  // Quitar las que ya han cerrado plazo.
-  let caducadas = 0;
-  for (const [id, item] of porId) if (!sigueAbierta(item)) { porId.delete(id); caducadas++; }
+  // Recalcular estados (una abierta puede haber cerrado plazo) y aplicar el límite del histórico.
+  let retiradas = 0;
+  for (const [id, item] of porId) {
+    if (!item.s) item.s = 'PUB';
+    item.g = grupoDe(item);
+    if (!conservar(item)) { porId.delete(id); retiradas++; }
+  }
 
-  const items = [...porId.values()];
   const meta = {
     actualizado: AHORA.toISOString(),
-    total: items.length,
     fuentes: fuentesMeta,
     provincias: PROVINCIAS,
     comunidades: COMUNIDADES,
     tipos: TIPOS,
     procedimientos: PROCEDIMIENTOS,
+    resultados: RESULTADOS,
+    grupos: GRUPOS,
   };
-  await guardar(meta, items);
-  log(`Listo: ${items.length} licitaciones abiertas (${caducadas} retiradas por fin de plazo).`);
+  const r = await guardar(meta, [...porId.values()]);
+  log(`Listo: ${r.abiertas} en plazo y ${r.historico} en histórico, en ${r.archivos} archivos (${retiradas} retiradas por antigüedad).`);
 }
 
 main().catch((e) => {

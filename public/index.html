@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Licitaciones abiertas</title>
-<meta name="description" content="Buscador gratuito de licitaciones públicas en plazo en España. Filtra por código CPV y provincia.">
+<title>LicitaEmpresa: licitaciones públicas de toda España</title>
+<meta name="description" content="Buscador gratuito de licitaciones públicas en España: en plazo, adjudicadas y con su empresa ganadora. Filtra por código CPV y provincia.">
 <link rel="stylesheet" href="fuentes.css">
 <style>
 :root {
@@ -62,6 +62,20 @@ h1 { font-size: 30px; line-height: 1.15; font-weight: 700; margin: 0; letter-spa
 }
 .campo { min-width: 0; }
 .c-cpv, .c-prov, .c-tipo, .c-dias { grid-column: span 3; }
+.c-estado { grid-column: span 9; }
+.c-periodo { grid-column: span 3; }
+.estados { display: flex; flex-wrap: wrap; gap: 8px; }
+.estado-btn {
+  height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface);
+  cursor: pointer; font-size: 14px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 8px;
+}
+.estado-btn small { font-weight: 500; font-size: 12px; color: var(--muted); }
+.estado-btn:hover { border-color: var(--accent); color: var(--ink); }
+.estado-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.estado-btn[aria-pressed="true"] small { color: var(--accent-ink); opacity: .8; }
+.estado-btn::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--g); }
+.estado-btn[aria-pressed="true"]::before { background: var(--accent-ink); }
+select:disabled { opacity: .55; cursor: not-allowed; }
 .c-texto { grid-column: span 6; }
 .c-importe { grid-column: span 3; }
 .c-pie { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding-top: 12px; border-top: 1px solid var(--line); }
@@ -124,6 +138,21 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 .cpv { display: inline-block; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; color: var(--ink); cursor: pointer; font-size: 13px; }
 .cpv:hover { background: var(--accent-soft); color: var(--accent); }
 .importe { text-align: right; white-space: nowrap; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--g); }
+.badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--g); }
+.lic.historico .cierre { margin-top: 4px; }
+.adj { margin: 8px 0 0; font-size: 14px; }
+.adj b { font-weight: 600; }
+.adj .mas-lotes { color: var(--muted); font-size: 13px; }
+[data-g="A"] { --g: var(--accent); }
+[data-g="P"] { --g: #7A4CC2; }
+[data-g="E"] { --g: var(--warn); }
+[data-g="J"] { --g: #1E7B4F; }
+[data-g="F"] { --g: #115E3B; }
+[data-g="N"] { --g: #7A8794; }
+@media (prefers-color-scheme: dark) {
+  [data-g="P"] { --g: #B79BEA; } [data-g="J"] { --g: #6FD3A0; } [data-g="F"] { --g: #4FBF8A; } [data-g="N"] { --g: #93A6B8; }
+}
 .importe b { display: block; font-size: 17px; font-weight: 700; }
 .importe span { color: var(--muted); font-size: 12px; }
 
@@ -140,6 +169,7 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 
 @media (max-width: 1100px) and (min-width: 901px) {
   .c-cpv, .c-prov, .c-tipo, .c-importe, .c-dias { grid-column: span 6; }
+  .c-estado { grid-column: span 12; } .c-periodo { grid-column: span 6; }
   .c-texto { grid-column: span 12; }
 }
 @media (max-width: 900px) {
@@ -176,8 +206,8 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 <header class="cabecera">
   <div class="cabecera-in">
     <div>
-      <h1>Licitaciones abiertas</h1>
-      <p class="lema">Concursos públicos en plazo de toda España, actualizados cada día. Gratis y sin registro.</p>
+      <h1>LicitaEmpresa</h1>
+      <p class="lema">Licitaciones públicas de toda España: en plazo, adjudicadas y quién las gana. Actualizadas cada día, gratis y sin registro.</p>
     </div>
     <p class="estado-datos" id="estadoDatos">Cargando licitaciones…</p>
   </div>
@@ -185,6 +215,20 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 
 <div class="marco">
   <section class="filtros" id="filtros" aria-label="Filtros">
+    <div class="campo c-estado">
+      <span class="etq" id="etqEstado">Estado</span>
+      <div class="estados" id="estados" role="group" aria-labelledby="etqEstado"></div>
+    </div>
+
+    <div class="campo c-periodo">
+      <label for="periodo">Histórico: actualizadas en</label>
+      <select id="periodo">
+        <option value="1">El último mes</option>
+        <option value="3">Los últimos 3 meses</option>
+        <option value="6">Los últimos 6 meses</option>
+      </select>
+    </div>
+
     <div class="campo c-cpv">
       <label for="cpvEntrada">Código CPV</label>
       <input type="text" id="cpvEntrada" list="cpvLista" placeholder="Ej.: 553 o hostelería, e Intro" autocomplete="off"
@@ -198,8 +242,8 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     </div>
 
     <div class="campo c-texto">
-      <label for="texto">Buscar en título u organismo</label>
-      <input type="search" id="texto" placeholder="Ej.: comedor, Ayuntamiento de Pamplona">
+      <label for="texto">Buscar en título, organismo o empresa</label>
+      <input type="search" id="texto" placeholder="Ej.: comedor, Ayuntamiento de Pamplona, nombre de empresa">
     </div>
 
     <div class="campo c-tipo">
@@ -216,7 +260,7 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     </div>
 
     <div class="campo c-dias">
-      <label for="dias">Cierran en</label>
+      <label for="dias">En plazo: cierran en</label>
       <select id="dias">
         <option value="">Cualquier plazo</option>
         <option value="7">Los próximos 7 días</option>
@@ -244,7 +288,7 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
         <label class="oculto" for="orden">Ordenar</label>
         <select id="orden">
           <option value="cierre">Cierran antes</option>
-          <option value="recientes">Publicadas recientemente</option>
+          <option value="recientes">Actualizadas recientemente</option>
           <option value="importe">Mayor presupuesto</option>
         </select>
         <button type="button" class="boton boton-principal" id="csv">Descargar CSV</button>
@@ -292,19 +336,29 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     ['92','Ocio, cultura y deporte'],['98','Otros servicios comunitarios y personales'],
   ];
   const nombreCPV = new Map(CPV_SECTORES);
+  const GRUPOS = [
+    ['A', 'En plazo'], ['P', 'Anuncio previo'], ['E', 'En evaluación'],
+    ['J', 'Adjudicadas'], ['F', 'Formalizadas'], ['N', 'Anuladas o desiertas'],
+  ];
+  const NOMBRE_GRUPO = { A: 'En plazo', P: 'Anuncio previo', E: 'En evaluación', J: 'Adjudicada', F: 'Formalizada', N: 'Anulada o desierta' };
 
   const $ = (id) => document.getElementById(id);
-  const fmtEuro = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+  const fmtEuro = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' });
+  const fmtNum = new Intl.NumberFormat('es-ES', { useGrouping: 'always' });
   const fmtFecha = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
   const fmtFechaAño = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   const quitarTildes = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-  let datos = { meta: {}, items: [] };
+  let meta = {};
+  const cargados = new Map(); // archivo -> items
+  let todos = [];
   let resultado = [];
   let mostrados = 0;
+  let turno = 0;
   const POR_PAGINA = 50;
-  const f = { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: false, orden: 'cierre' };
+  const POR_DEFECTO = { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: false, orden: 'cierre', est: ['A'], per: '1' };
+  const f = structuredClone(POR_DEFECTO);
 
   // Fecha y hora actual en Madrid como "YYYY-MM-DDTHH:MM"
   function ahoraMadrid() {
@@ -312,7 +366,16 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
       .formatToParts(new Date()).map((x) => [x.type, x.value]));
     return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
   }
-  const comoUTC = (s) => Date.parse(s + ':00Z');
+  const comoUTC = (s) => Date.parse(s.length === 10 ? s + 'T00:00:00Z' : s + ':00Z');
+  function formatoFecha(iso, tAhora) {
+    const d = new Date(comoUTC(iso));
+    return (d.getUTCFullYear() === new Date(tAhora).getUTCFullYear() ? fmtFecha : fmtFechaAño).format(d);
+  }
+  // Fecha (YYYY-MM-DD) de hace n meses
+  function haceMeses(n) {
+    const d = new Date(); d.setMonth(d.getMonth() - Number(n));
+    return d.toISOString().slice(0, 10);
+  }
 
   // "55300000-3" -> "553"; "45" -> "45"
   function normalizarCPV(v) {
@@ -322,6 +385,7 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     if (r.length < 2) r = d.slice(0, 2);
     return r;
   }
+  const soloAbiertas = () => f.est.length === 1 && f.est[0] === 'A';
 
   // ---------- estado en la URL ----------
   function leerURL() {
@@ -331,9 +395,14 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     f.q = h.get('q') || ''; f.tipo = h.get('tipo') || ''; f.min = h.get('min') || ''; f.max = h.get('max') || '';
     f.dias = h.get('dias') || ''; f.sinFecha = h.get('sinfecha') === '1'; f.estatal = h.get('estatal') === '1';
     f.orden = h.get('orden') || 'cierre';
+    const est = (h.get('est') || '').split(',').filter((g) => NOMBRE_GRUPO[g]);
+    f.est = est.length ? est : ['A'];
+    f.per = ['1', '3', '6'].includes(h.get('per')) ? h.get('per') : '1';
   }
   function escribirURL() {
     const h = new URLSearchParams();
+    if (!soloAbiertas()) h.set('est', f.est.join(','));
+    if (!soloAbiertas() && f.per !== '1') h.set('per', f.per);
     if (f.cpv.length) h.set('cpv', f.cpv.join(','));
     if (f.prov.length) h.set('prov', f.prov.join(','));
     for (const k of ['q', 'tipo', 'min', 'max', 'dias']) if (f[k]) h.set(k, f[k]);
@@ -344,37 +413,82 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     history.replaceState(null, '', s ? '#' + s : location.pathname + location.search);
   }
 
+  // ---------- carga de datos bajo demanda ----------
+  function prepararItem(x) {
+    x._t = x.f && x.f.length > 10 ? comoUTC(x.f) : null;
+    x.c = x.c || [];
+    x._s = quitarTildes(`${x.t} ${x.o} ${x.e} ${(x.ad || []).map((a) => a[0]).join(' ')}`);
+    return x;
+  }
+  async function cargarArchivo(nombre) {
+    if (cargados.has(nombre)) return;
+    const r = await fetch('data/' + nombre, { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    cargados.set(nombre, (d.items || []).map(prepararItem));
+  }
+  function archivosNecesarios() {
+    const lista = [];
+    if (f.est.includes('A')) lista.push(meta.archivos.abiertas.f);
+    const otros = f.est.filter((g) => g !== 'A');
+    if (otros.length) {
+      const desde = haceMeses(f.per).slice(0, 7);
+      for (const h of meta.archivos.historico || []) {
+        if (h.mes < desde) continue;
+        if (!otros.some((g) => h.grupos?.[g])) continue;
+        lista.push(h.f);
+      }
+      // Las abiertas cuyo plazo ha vencido desde la última actualización cuentan como «en evaluación».
+      if (otros.includes('E') && !lista.includes(meta.archivos.abiertas.f)) lista.push(meta.archivos.abiertas.f);
+    }
+    return lista;
+  }
+  async function asegurarDatos() {
+    const lista = archivosNecesarios();
+    const faltan = lista.filter((n) => !cargados.has(n));
+    if (faltan.length) {
+      $('recuento').innerHTML = '<span class="cargando">Cargando histórico…</span>';
+      await Promise.all(faltan.map(cargarArchivo));
+    }
+    todos = lista.flatMap((n) => cargados.get(n) || []);
+  }
+
   // ---------- controles ----------
   function prepararControles() {
-    const m = datos.meta;
     $('cpvLista').innerHTML = CPV_SECTORES.map(([c, n]) => `<option value="${c} ${esc(n)}"></option>`).join('');
 
     let html = '<option value="">Añadir provincia o comunidad…</option>';
-    for (const [com, provs] of m.comunidades || []) {
+    for (const [com, provs] of meta.comunidades || []) {
       html += `<optgroup label="${esc(com)}">`;
       if (provs.length > 1) html += `<option value="${provs.join('+')}">${esc(com)} (todas)</option>`;
-      for (const p of provs) html += `<option value="${p}">${esc(m.provincias[p])}</option>`;
+      for (const p of provs) html += `<option value="${p}">${esc(meta.provincias[p])}</option>`;
       html += '</optgroup>';
     }
     $('provSelect').innerHTML = html;
 
-    const tiposUsados = new Set(datos.items.map((x) => x.tc).filter(Boolean));
-    $('tipo').innerHTML = '<option value="">Todos</option>' + Object.entries(m.tipos || {})
-      .filter(([c]) => tiposUsados.has(c)).map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join('');
+    $('tipo').innerHTML = '<option value="">Todos</option>' + Object.entries(meta.tipos || {})
+      .map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join('');
+
+    const tot = meta.totales || {};
+    $('estados').innerHTML = GRUPOS.map(([g, n]) =>
+      `<button type="button" class="estado-btn" data-g="${g}" aria-pressed="false">${esc(n)}${tot[g] ? ` <small>${fmtNum.format(tot[g])}</small>` : ''}</button>`).join('');
   }
 
   function pintarControles() {
+    for (const b of $('estados').querySelectorAll('.estado-btn')) b.setAttribute('aria-pressed', f.est.includes(b.dataset.g));
+    $('periodo').value = f.per;
+    $('periodo').disabled = soloAbiertas();
     $('cpvChips').innerHTML = f.cpv.map((c) =>
       `<button type="button" class="chip" data-cpv="${c}" aria-label="Quitar CPV ${c}">${c}${nombreCPV.has(c) ? ' ' + esc(nombreCPV.get(c)) : ''}<span aria-hidden="true">×</span></button>`).join('');
     $('provChips').innerHTML = f.prov.map((p) =>
-      `<button type="button" class="chip" data-prov="${p}" aria-label="Quitar ${esc(datos.meta.provincias?.[p] || p)}">${esc(datos.meta.provincias?.[p] || p)}<span aria-hidden="true">×</span></button>`).join('');
+      `<button type="button" class="chip" data-prov="${p}" aria-label="Quitar ${esc(meta.provincias?.[p] || p)}">${esc(meta.provincias?.[p] || p)}<span aria-hidden="true">×</span></button>`).join('');
     $('chipsActivos').classList.toggle('sin-chips', !f.cpv.length && !f.prov.length);
     $('texto').value = f.q; $('tipo').value = f.tipo; $('minimo').value = f.min; $('maximo').value = f.max;
     $('dias').value = f.dias; $('ocultarSinFecha').checked = f.sinFecha; $('incluirEstatal').checked = f.estatal; $('orden').value = f.orden;
   }
 
   function añadirCPV(valor) {
-    let v = valor.trim();
+    const v = valor.trim();
     if (!v) return;
     let codigo = /^\d/.test(v) ? normalizarCPV(v.split(' ')[0]) : null;
     if (!codigo) {
@@ -399,6 +513,15 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
       for (const p of e.target.value.split('+').filter(Boolean)) if (!f.prov.includes(p)) f.prov.push(p);
       e.target.value = ''; cambiar();
     });
+    $('estados').addEventListener('click', (e) => {
+      const b = e.target.closest('.estado-btn');
+      if (!b) return;
+      const g = b.dataset.g;
+      f.est = f.est.includes(g) ? f.est.filter((x) => x !== g) : [...f.est, g];
+      if (!f.est.length) f.est = [g]; // siempre queda al menos uno
+      cambiar();
+    });
+    $('periodo').addEventListener('change', (e) => { f.per = e.target.value; cambiar(); });
     document.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (chip?.dataset.cpv) { f.cpv = f.cpv.filter((c) => c !== chip.dataset.cpv); cambiar(); }
@@ -412,11 +535,8 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     for (const [id, k] of Object.entries(simples)) $(id).addEventListener('change', (e) => { f[k] = e.target.value; escribirURL(); filtrar(); });
     $('ocultarSinFecha').addEventListener('change', (e) => { f.sinFecha = e.target.checked; escribirURL(); filtrar(); });
     $('incluirEstatal').addEventListener('change', (e) => { f.estatal = e.target.checked; escribirURL(); filtrar(); });
-    $('limpiar').addEventListener('click', () => {
-      Object.assign(f, { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: false });
-      cambiar();
-    });
-    $('mas').addEventListener('click', pintarMas);
+    $('limpiar').addEventListener('click', () => { Object.assign(f, structuredClone(POR_DEFECTO)); cambiar(); });
+    $('mas').addEventListener('click', () => pintarMas());
     $('csv').addEventListener('click', descargarCSV);
     $('verFiltros').addEventListener('click', () => {
       const abierto = $('filtros').classList.toggle('abierto');
@@ -425,45 +545,69 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
   }
 
   // ---------- filtrado ----------
-  function filtrar() {
+  async function filtrar() {
+    const mio = ++turno;
+    try { await asegurarDatos(); } catch (e) {
+      $('recuento').textContent = 'No se ha podido cargar el histórico. Inténtalo de nuevo en unos minutos.';
+      return;
+    }
+    if (mio !== turno) return; // llegó otro filtro mientras se cargaba
+
     const ahora = ahoraMadrid();
     const tAhora = comoUTC(ahora);
+    const est = new Set(f.est);
+    const desde = haceMeses(f.per);
     const palabras = quitarTildes(f.q).split(/\s+/).filter(Boolean);
     const provs = new Set(f.prov);
     const min = f.min ? Number(f.min) : null;
     const max = f.max ? Number(f.max) : null;
     const tope = f.dias ? tAhora + Number(f.dias) * 864e5 : null;
+    const vistos = new Set();
 
-    resultado = datos.items.filter((x) => {
-      if (x.f && x.f < ahora) return false;
-      if (!x.f && (f.sinFecha || tope)) return false;
-      if (tope && x._t > tope) return false;
+    resultado = todos.filter((x) => {
+      if (vistos.has(x.id)) return false;
+      // Una abierta cuyo plazo ya ha vencido pasa a «en evaluación».
+      x._g = x.g === 'A' && x.f && x.f < ahora ? 'E' : (x.g || 'A');
+      if (!est.has(x._g)) return false;
+      if (x._g === 'A') {
+        if (!x.f && (f.sinFecha || tope)) return false;
+        if (tope && x._t > tope) return false;
+      } else if (x.a < desde) return false;
       if (f.cpv.length && !x.c.some((c) => f.cpv.some((p) => c.startsWith(p)))) return false;
       if (provs.size && !(provs.has(x.p) || (f.estatal && x.p === '00'))) return false;
       if (f.tipo && x.tc !== f.tipo) return false;
       if (min != null && !(x.i >= min)) return false;
       if (max != null && !(x.i <= max)) return false;
       if (palabras.length && !palabras.every((w) => x._s.includes(w))) return false;
+      vistos.add(x.id);
       return true;
     });
 
+    const fechaRef = (x) => x.fa || x.a || '';
     const orden = {
-      cierre: (a, b) => (a._t ?? Infinity) - (b._t ?? Infinity),
-      recientes: (a, b) => (a.fp < b.fp ? 1 : a.fp > b.fp ? -1 : 0),
+      // En plazo primero (cierran antes), después el resto por fecha más reciente.
+      cierre: (a, b) => {
+        const ra = a._g === 'A' ? 0 : 1, rb = b._g === 'A' ? 0 : 1;
+        if (ra !== rb) return ra - rb;
+        if (ra === 0) return (a._t ?? Infinity) - (b._t ?? Infinity);
+        return fechaRef(a) < fechaRef(b) ? 1 : fechaRef(a) > fechaRef(b) ? -1 : 0;
+      },
+      recientes: (a, b) => (a.a < b.a ? 1 : a.a > b.a ? -1 : 0),
       importe: (a, b) => (b.i ?? -1) - (a.i ?? -1),
     }[f.orden] || (() => 0);
     resultado.sort(orden);
 
     const n = resultado.length;
-    $('recuento').innerHTML = `<strong>${n.toLocaleString('es-ES')}</strong> ${n === 1 ? 'licitación' : 'licitaciones'} en plazo`;
-    const activos = f.cpv.length + f.prov.length + ['q','tipo','min','max','dias'].filter((k) => f[k]).length + (f.sinFecha ? 1 : 0);
+    const sufijo = soloAbiertas() ? ' en plazo' : '';
+    $('recuento').innerHTML = `<strong>${fmtNum.format(n)}</strong> ${n === 1 ? 'licitación' : 'licitaciones'}${sufijo}`;
+    const activos = f.cpv.length + f.prov.length + ['q','tipo','min','max','dias'].filter((k) => f[k]).length + (f.sinFecha ? 1 : 0) + (soloAbiertas() ? 0 : 1);
     $('verFiltros').textContent = activos ? `Filtros (${activos})` : 'Filtros';
     $('csv').disabled = n === 0;
 
     $('lista').innerHTML = '';
     mostrados = 0;
     pintarMas(tAhora);
-    $('vacio').innerHTML = n ? '' : `<div class="vacio"><p>Ninguna licitación en plazo cumple estos filtros.</p><p>Prueba con un código CPV más corto (por ejemplo «55» en vez de «55321») o añade más provincias.</p></div>`;
+    $('vacio').innerHTML = n ? '' : `<div class="vacio"><p>Ninguna licitación cumple estos filtros.</p><p>Prueba con un código CPV más corto (por ejemplo «55» en vez de «55321»), añade provincias u otros estados.</p></div>`;
   }
 
   function pintarMas(tAhora) {
@@ -476,50 +620,67 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     $('mas').textContent = `Mostrar ${Math.min(quedan, POR_PAGINA)} más`;
   }
 
-  function fila(x, tAhora) {
-    const m = datos.meta;
-    let clase = '', plazo;
-    if (x._t) {
+  function columnaPlazo(x, tAhora) {
+    if (x._g === 'A') {
+      if (!x._t) return { clase: 'sinfecha', html: `<span class="dias">Sin fecha</span><span class="cierre">Consulta el plazo en el anuncio</span>` };
       const horas = (x._t - tAhora) / 36e5;
       const dias = Math.floor(horas / 24);
-      const d = new Date(x._t);
-      const fecha = (d.getUTCFullYear() === new Date(tAhora).getUTCFullYear() ? fmtFecha : fmtFechaAño).format(d);
       const hora = x.f.slice(11, 16);
-      if (horas < 24) { clase = 'urgente'; plazo = `<span class="dias">${Math.max(1, Math.ceil(horas))}<small>h</small></span>`; }
-      else { clase = dias <= 3 ? 'urgente' : dias <= 7 ? 'pronto' : ''; plazo = `<span class="dias">${dias}<small>${dias === 1 ? 'día' : 'días'}</small></span>`; }
-      plazo += `<span class="cierre">Cierra el ${fecha}${hora && hora !== '23:59' ? ', ' + hora : ''}</span>`;
-    } else {
-      clase = 'sinfecha';
-      plazo = `<span class="dias">Sin fecha</span><span class="cierre">Consulta el plazo en el anuncio</span>`;
+      let clase = '', html;
+      if (horas < 24) { clase = 'urgente'; html = `<span class="dias">${Math.max(1, Math.ceil(horas))}<small>h</small></span>`; }
+      else { clase = dias <= 3 ? 'urgente' : dias <= 7 ? 'pronto' : ''; html = `<span class="dias">${dias}<small>${dias === 1 ? 'día' : 'días'}</small></span>`; }
+      html += `<span class="cierre">Cierra el ${formatoFecha(x.f.slice(0, 10), tAhora)}${hora && hora !== '23:59' ? ', ' + hora : ''}</span>`;
+      return { clase, html };
     }
+    let detalle;
+    if ((x._g === 'J' || x._g === 'F') && x.fa) detalle = `Adjudicada el ${formatoFecha(x.fa, tAhora)}`;
+    else if (x._g === 'E' && x.f) detalle = `Plazo cerró el ${formatoFecha(x.f.slice(0, 10), tAhora)}`;
+    else detalle = `Actualizada el ${formatoFecha(x.a, tAhora)}`;
+    return { clase: 'historico', html: `<span class="badge" data-g="${x._g}">${NOMBRE_GRUPO[x._g]}</span><span class="cierre">${detalle}</span>` };
+  }
+
+  function lineaAdjudicacion(x) {
+    if (!x.ad?.length) return '';
+    const partes = x.ad.slice(0, 2).map(([empresa, importe, ofertas]) =>
+      `<b>${esc(empresa)}</b>${importe ? ` por ${fmtEuro.format(importe)}` : ''}${ofertas ? `, ${ofertas} ${ofertas === 1 ? 'oferta' : 'ofertas'}` : ''}`);
+    const resto = (x.nad || x.ad.length) - partes.length;
+    return `<p class="adj">Adjudicada a ${partes.join('; ')}${resto > 0 ? ` <span class="mas-lotes">y ${resto} más</span>` : ''}</p>`;
+  }
+
+  function fila(x, tAhora) {
+    const { clase, html } = columnaPlazo(x, tAhora);
     const cpvs = x.c.slice(0, 4).map((c) => `<button type="button" class="cpv" data-c="${c}" title="Filtrar por ${c}">${c}</button>`).join(' ')
       + (x.c.length > 4 ? ` +${x.c.length - 4}` : '');
     const datosFila = [
-      `<span>${esc(m.provincias?.[x.p] || 'Sin especificar')}</span>`,
-      x.tc && m.tipos?.[x.tc] ? `<span>${esc(m.tipos[x.tc])}</span>` : '',
-      x.pr && m.procedimientos?.[x.pr] ? `<span>${esc(m.procedimientos[x.pr])}</span>` : '',
+      `<span>${esc(meta.provincias?.[x.p] || 'Sin especificar')}</span>`,
+      x.tc && meta.tipos?.[x.tc] ? `<span>${esc(meta.tipos[x.tc])}</span>` : '',
+      x.pr && meta.procedimientos?.[x.pr] ? `<span>${esc(meta.procedimientos[x.pr])}</span>` : '',
       x.c.length ? `<span>CPV ${cpvs}</span>` : '',
       x.e ? `<span>Exp. ${esc(x.e)}</span>` : '',
     ].join('');
     return `<li class="lic ${clase}">
-      <div class="plazo">${plazo}</div>
+      <div class="plazo">${html}</div>
       <div>
         <h3 class="titulo"><a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a></h3>
         <p class="organo">${esc(x.o)}</p>
         <p class="datos">${datosFila}</p>
+        ${lineaAdjudicacion(x)}
       </div>
-      <div class="importe">${x.i ? `<b>${fmtEuro.format(x.i)}</b><span>sin IVA</span>` : '<span>Importe no indicado</span>'}</div>
+      <div class="importe">${x.i ? `<b>${fmtEuro.format(x.i)}</b><span>presupuesto sin IVA</span>` : '<span>Importe no indicado</span>'}</div>
     </li>`;
   }
 
   // ---------- CSV ----------
   function descargarCSV() {
-    const m = datos.meta;
-    const cab = ['Título', 'Organismo', 'Expediente', 'Provincia', 'Tipo', 'Procedimiento', 'CPV', 'Presupuesto sin IVA', 'Fecha límite', 'Enlace'];
+    const cab = ['Estado', 'Título', 'Organismo', 'Expediente', 'Provincia', 'Tipo', 'Procedimiento', 'CPV', 'Presupuesto sin IVA',
+      'Fecha límite', 'Fecha adjudicación', 'Adjudicatario', 'Importe adjudicado sin IVA', 'Ofertas recibidas', 'Última actualización', 'Enlace'];
     const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const euros = (v) => (v != null ? String(v).replace('.', ',') : '');
     const filas = resultado.map((x) => [
-      x.t, x.o, x.e, m.provincias?.[x.p], m.tipos?.[x.tc], m.procedimientos?.[x.pr], x.c.join(' '),
-      x.i != null ? String(x.i).replace('.', ',') : '', x.f ? x.f.replace('T', ' ') : '', x.u,
+      NOMBRE_GRUPO[x._g], x.t, x.o, x.e, meta.provincias?.[x.p], meta.tipos?.[x.tc], meta.procedimientos?.[x.pr], x.c.join(' '),
+      euros(x.i), x.f ? x.f.replace('T', ' ') : '', x.fa || '',
+      (x.ad || []).map((a) => a[0]).join(' | '), (x.ad || []).map((a) => euros(a[1])).join(' | '),
+      (x.ad || []).map((a) => a[2] ?? '').join(' | '), x.a, x.u,
     ].map(q).join(';'));
     const blob = new Blob(['﻿' + [cab.map(q).join(';'), ...filas].join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
@@ -540,23 +701,33 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 
   async function iniciar() {
     try {
-      const r = await fetch('data/licitaciones.json', { cache: 'no-cache' });
+      const r = await fetch('data/indice.json', { cache: 'no-cache' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      datos = await r.json();
+      meta = await r.json();
+      if (!meta.archivos) throw new Error('sin datos');
     } catch (e) {
-      $('estadoDatos').textContent = 'No se han podido cargar los datos. Recarga la página en unos minutos.';
-      $('vacio').innerHTML = '<div class="vacio"><p>No hay datos disponibles ahora mismo.</p><p>Si acabas de publicar la web, espera a que termine la primera actualización automática.</p></div>';
+      meta = null;
+    }
+    if (!meta) {
+      // Formato antiguo (solo abiertas), mientras termina la primera carga con histórico.
+      try {
+        const r = await fetch('data/licitaciones.json', { cache: 'no-cache' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const d = await r.json();
+        const items = (d.items || []).map((x) => prepararItem({ ...x, g: 'A', s: 'PUB' }));
+        if (!d.meta?.actualizado) throw new Error('sin datos');
+        cargados.set('licitaciones.json', items);
+        meta = { ...d.meta, total: items.length, totales: { A: items.length }, archivos: { abiertas: { f: 'licitaciones.json', n: items.length }, historico: [] } };
+      } catch (e2) {
+        meta = null;
+      }
+    }
+    if (!meta) {
+      $('estadoDatos').textContent = 'Todavía no hay datos: la actualización automática está en marcha. Vuelve en un rato.';
+      $('vacio').innerHTML = '<div class="vacio"><p>No hay datos disponibles ahora mismo.</p><p>La primera carga de datos tarda alrededor de una hora y media.</p></div>';
       return;
     }
-    for (const x of datos.items) {
-      x._t = x.f ? comoUTC(x.f) : null;
-      x._s = quitarTildes(`${x.t} ${x.o} ${x.e}`);
-      x.c = x.c || [];
-    }
-    const m = datos.meta;
-    $('estadoDatos').innerHTML = m.actualizado
-      ? `<strong>${new Intl.NumberFormat('es-ES', { useGrouping: 'always' }).format(m.total ?? datos.items.length)}</strong> licitaciones en plazo, actualizadas ${haceCuanto(m.actualizado)}`
-      : 'Todavía no hay datos: la primera actualización automática está pendiente.';
+    $('estadoDatos').innerHTML = `<strong>${fmtNum.format(meta.total ?? 0)}</strong> licitaciones en plazo, actualizadas ${haceCuanto(meta.actualizado)}`;
     prepararControles();
     leerURL();
     pintarControles();
