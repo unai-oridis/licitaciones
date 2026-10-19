@@ -2,11 +2,17 @@
 // (perfiles alojados + plataformas autonómicas agregadas), se queda solo con las
 // que están en plazo y guarda el resultado en public/data/licitaciones.json.
 //
-// Funciona de forma incremental: la primera vez recorre DIAS_INICIALES días hacia
-// atrás; después solo lee lo publicado desde la última ejecución.
+// Funciona de forma incremental:
+// - La primera vez descarga los ficheros ZIP mensuales de los últimos MESES_INICIALES meses
+//   (mucho más rápido que ir página a página, porque el servidor del Ministerio es lento).
+// - Después solo lee las páginas del feed publicadas desde la última ejecución.
 
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { XMLParser } from 'fast-xml-parser';
 import { COMUNIDADES, PROVINCIAS, provinciaDesdeNuts, provinciaDesdeCP } from './territorio.mjs';
 
@@ -26,8 +32,12 @@ const FEEDS = [
 ];
 
 const RUTA_DATOS = process.env.RUTA_DATOS || 'public/data/licitaciones.json';
-const DIAS_INICIALES = Number(process.env.DIAS_INICIALES || 120);
-const MAX_PAGINAS = Number(process.env.MAX_PAGINAS || 3000);
+const MESES_INICIALES = Number(process.env.MESES_INICIALES || 3);
+const DIAS_RESPALDO = 7; // si no hay ZIP disponible, días que se leen página a página
+const MAX_PAGINAS = Number(process.env.MAX_PAGINAS || 400);
+const MAX_MINUTOS = Number(process.env.MAX_MINUTOS || 300); // margen bajo el límite de GitHub
+const INICIO = Date.now();
+const ejecutar = promisify(execFile);
 const DIAS_SIN_PLAZO = 45; // licitaciones en plazo que no indican fecha límite
 const AHORA = process.env.AHORA ? new Date(process.env.AHORA) : new Date();
 
@@ -84,7 +94,7 @@ async function descargar(url) {
     try {
       const r = await fetch(url, {
         headers: { 'User-Agent': 'licitaciones-abiertas/1.0 (consulta pública gratuita)', Accept: 'application/atom+xml,*/*' },
-        signal: AbortSignal.timeout(120_000),
+        signal: AbortSignal.timeout(360_000),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return await r.text();
@@ -174,47 +184,119 @@ function sigueAbierta(item) {
   return item.a >= LIMITE_SIN_PLAZO;
 }
 
-// ---------- recorrido de un feed ----------
+// ---------- lectura de páginas ----------
 
-async function recorrerFeed(feed, desdeIso) {
+// Procesa una página ATOM y apunta en `cambios` la versión más reciente de cada licitación.
+// cambios: id -> { ts, leida }  (leida = null si se ha borrado)
+function procesarPagina(xml, feed, cambios, desde, estado) {
+  const doc = parser.parse(xml).feed || {};
+  let masAntigua = Infinity;
+
+  for (const e of doc.entry || []) {
+    const actualizado = txt(e.updated);
+    const ts = ms(actualizado);
+    masAntigua = Math.min(masAntigua, ts);
+    if (ts <= desde) continue;
+    if (ts > ms(estado.masReciente)) estado.masReciente = actualizado;
+    let leida = leerEntrada(e, feed.clave);
+    if (!leida || !leida.id) continue;
+    if (leida.estado !== 'PUB') leida = { id: leida.id, estado: leida.estado }; // no guardar lo que no hace falta
+    const previo = cambios.get(leida.id);
+    if (!previo || ts > previo.ts) cambios.set(leida.id, { ts, leida });
+  }
+  for (const d of doc['deleted-entry'] || []) {
+    const ts = ms(d['@_when']);
+    if (ts <= desde) continue;
+    const id = String(d['@_ref'] || '').replace(/^https?:\/\/[^/]+\/sindicacion\//, '');
+    const previo = cambios.get(id);
+    if (id && (!previo || ts > previo.ts)) cambios.set(id, { ts, leida: null });
+  }
+  const siguiente = (doc.link || []).find((l) => l['@_rel'] === 'next');
+  return { masAntigua, siguiente: siguiente?.['@_href'] };
+}
+
+// Lee el feed en vivo, de lo más nuevo a lo más antiguo, hasta llegar a `desdeIso`.
+async function recorrerFeed(feed, desdeIso, cambios, estado) {
   const desde = ms(desdeIso);
-  const cambios = new Map(); // id -> { ts, leida | null (borrada) }
   let url = feed.url;
   let paginas = 0;
-  let masReciente = desdeIso;
 
   while (url && paginas < MAX_PAGINAS) {
+    if (Date.now() - INICIO > MAX_MINUTOS * 60_000) {
+      log(`  aviso: se acaba el tiempo; ${feed.clave} se completará en la próxima ejecución`);
+      break;
+    }
     const xml = await descargar(url);
     paginas++;
-    const doc = parser.parse(xml).feed || {};
-    let masAntigua = Infinity;
-
-    for (const e of doc.entry || []) {
-      const ts = ms(txt(e.updated));
-      masAntigua = Math.min(masAntigua, ts);
-      if (ts <= desde) continue;
-      if (ts > ms(masReciente)) masReciente = txt(e.updated);
-      const leida = leerEntrada(e, feed.clave);
-      if (!leida || !leida.id) continue;
-      const previo = cambios.get(leida.id);
-      if (!previo || ts > previo.ts) cambios.set(leida.id, { ts, leida });
-    }
-    for (const d of doc['deleted-entry'] || []) {
-      const ts = ms(d['@_when']);
-      if (ts <= desde) continue;
-      const id = String(d['@_ref'] || '').replace(/^https?:\/\/[^/]+\/sindicacion\//, '');
-      const previo = cambios.get(id);
-      if (id && (!previo || ts > previo.ts)) cambios.set(id, { ts, leida: null });
-    }
-
-    if (paginas % 20 === 0) log(`  ${feed.clave}: ${paginas} páginas, ${cambios.size} licitaciones con cambios`);
+    const { masAntigua, siguiente } = procesarPagina(xml, feed, cambios, desde, estado);
+    if (paginas % 5 === 0) log(`  ${feed.clave}: ${paginas} páginas, ${cambios.size} licitaciones con cambios`);
     if (masAntigua <= desde) break;
-
-    const siguiente = (doc.link || []).find((l) => l['@_rel'] === 'next');
-    url = siguiente ? new URL(siguiente['@_href'], url).href : null;
+    url = siguiente ? new URL(siguiente, url).href : null;
   }
   if (paginas >= MAX_PAGINAS) log(`  aviso: ${feed.clave} alcanzó el máximo de ${MAX_PAGINAS} páginas`);
-  return { cambios, paginas, masReciente };
+  return paginas;
+}
+
+// ---------- primera carga con los ZIP mensuales ----------
+
+async function descargarArchivo(url, destino) {
+  if (url.startsWith('file:')) return fs.copyFile(fileURLToPath(url), destino);
+  await ejecutar('curl', [
+    '-fsSL', '--retry', '4', '--retry-delay', '20', '--connect-timeout', '60', '--max-time', '7200',
+    '-A', 'licitaciones-abiertas/1.0 (consulta pública gratuita)', '-o', destino, url,
+  ], { maxBuffer: 1 << 20 });
+}
+
+async function listarAtom(dir) {
+  const salida = [];
+  for (const e of await fs.readdir(dir, { withFileTypes: true })) {
+    const ruta = path.join(dir, e.name);
+    if (e.isDirectory()) salida.push(...(await listarAtom(ruta)));
+    else if (e.name.endsWith('.atom')) salida.push(ruta);
+  }
+  return salida;
+}
+
+async function cargaInicialZip(feed, cambios, estado) {
+  const meses = [];
+  for (let k = MESES_INICIALES - 1; k >= 0; k--) {
+    const d = new Date(Date.UTC(AHORA.getUTCFullYear(), AHORA.getUTCMonth() - k, 1));
+    meses.push(`${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
+  }
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), `lic-${feed.clave}-`));
+  try {
+    // Descarga los meses a la vez: el servidor es lento por conexión.
+    log(`  descargando ZIP mensuales: ${meses.join(', ')}`);
+    const descargas = await Promise.all(meses.map(async (m) => {
+      const url = feed.url.replace(/\.atom$/, `_${m}.zip`);
+      const destino = path.join(base, `${m}.zip`);
+      const t0 = Date.now();
+      try {
+        await descargarArchivo(url, destino);
+        const mb = (await fs.stat(destino)).size / 1e6;
+        log(`  ${m}.zip descargado: ${mb.toFixed(1)} MB en ${Math.round((Date.now() - t0) / 60000)} min`);
+        return { m, destino };
+      } catch (e) {
+        log(`  ${m}.zip no disponible (${String(e.message).split('\n')[0]})`);
+        return null;
+      }
+    }));
+
+    let leidos = 0;
+    for (const d of descargas.filter(Boolean)) {
+      const carpeta = path.join(base, d.m);
+      await ejecutar('unzip', ['-q', '-o', d.destino, '-d', carpeta], { maxBuffer: 1 << 24 });
+      await fs.rm(d.destino);
+      const ficheros = await listarAtom(carpeta);
+      for (const f of ficheros) procesarPagina(await fs.readFile(f, 'utf8'), feed, cambios, 0, estado);
+      await fs.rm(carpeta, { recursive: true, force: true });
+      leidos++;
+      log(`  ${d.m}: ${ficheros.length} páginas procesadas, ${cambios.size} licitaciones acumuladas`);
+    }
+    return leidos;
+  } finally {
+    await fs.rm(base, { recursive: true, force: true });
+  }
 }
 
 // ---------- programa principal ----------
@@ -244,10 +326,18 @@ async function main() {
 
   for (const feed of FEEDS) {
     const previo = fuentesMeta[feed.clave];
-    const desde = previo?.hasta || new Date(AHORA.getTime() - DIAS_INICIALES * 864e5).toISOString();
-    log(`${feed.nombre}: leyendo cambios desde ${desde}${previo ? '' : ' (primera carga)'}`);
     try {
-      const { cambios, paginas, masReciente } = await recorrerFeed(feed, desde);
+      const cambios = new Map();
+      const estado = { masReciente: previo?.hasta || '1970-01-01T00:00:00Z' };
+      let desde = previo?.hasta;
+      if (!desde) {
+        log(`${feed.nombre}: primera carga (${MESES_INICIALES} meses)`);
+        const meses = await cargaInicialZip(feed, cambios, estado);
+        desde = meses ? estado.masReciente : new Date(AHORA.getTime() - DIAS_RESPALDO * 864e5).toISOString();
+      }
+      log(`${feed.nombre}: leyendo novedades desde ${desde}`);
+      const paginas = await recorrerFeed(feed, desde, cambios, estado);
+      const masReciente = estado.masReciente;
       let altas = 0;
       let bajas = 0;
       for (const [id, { leida }] of cambios) {
