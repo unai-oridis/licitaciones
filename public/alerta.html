@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tu alerta · LicitaEmpresa</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="fuentes.css">
+<link rel="stylesheet" href="legal.css">
+<style>
+  .boton { display: inline-block; border: 0; border-radius: 8px; padding: 12px 20px; font: 600 15px/1 "Public Sans", system-ui, sans-serif; cursor: pointer; text-decoration: none; }
+  .principal { background: var(--accent); color: #fff; }
+  .secundario { background: transparent; color: var(--accent); border: 1px solid var(--line); margin-left: 8px; }
+  form { margin: 20px 0 0; }
+</style>
+</head>
+<body>
+<header class="cabecera">
+  <div class="cabecera-in">
+    <a class="marca" href="./">LicitaEmpresa</a>
+    <a class="volver" href="./">Volver al buscador de licitaciones</a>
+  </div>
+</header>
+<main>
+<article id="contenido">
+  <h1>Tu alerta</h1>
+  <p>Cargando…</p>
+</article>
+</main>
+<footer class="pie">
+  <span>© 2026 Soluciones Globales Echeyde 360, S.L.U.</span>
+  <a href="aviso-legal.html">Aviso legal</a>
+  <a href="privacidad.html">Privacidad</a>
+  <a href="cookies.html">Cookies</a>
+</footer>
+<script>
+(() => {
+  const p = new URLSearchParams(location.search);
+  const c = document.getElementById('contenido');
+  const esc = (s) => String(s).replace(/[&<>"']/g, (x) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]));
+  const baja = p.get('baja');
+  if (baja && /^[0-9a-f]{32}$/.test(baja)) {
+    const todas = p.get('todas') === '1';
+    c.innerHTML = `<h1>${todas ? 'Darte de baja de todas tus alertas' : 'Dar de baja esta alerta'}</h1>
+      <p>${todas ? 'Dejarás de recibir todos los emails de alertas de LicitaEmpresa en esta dirección.' : 'Dejarás de recibir los avisos de esta alerta. Si tienes otras alertas, seguirás recibiéndolas.'}</p>
+      <form method="post" action="/api/baja">
+        <input type="hidden" name="t" value="${esc(baja)}">
+        <input type="hidden" name="todas" value="${todas ? '1' : '0'}">
+        <button class="boton principal" type="submit">${todas ? 'Darme de baja de todas' : 'Dar de baja'}</button>
+        <a class="boton secundario" href="./">Cancelar</a>
+      </form>`;
+    return;
+  }
+  const textos = {
+    'confirmada': ['Alerta confirmada', 'A partir de mañana recibirás cada mañana un email con las licitaciones nuevas que coincidan con tu alerta. Solo te escribiremos si hay novedades.'],
+    'baja': ['Alerta dada de baja', 'No recibirás más avisos de esta alerta.'],
+    'baja-todas': ['Te has dado de baja', 'Hemos borrado todas tus alertas. No recibirás más emails de LicitaEmpresa.'],
+    'no-encontrada': ['No encontramos esta alerta', 'Puede que ya se haya dado de baja o que el enlace esté incompleto. Si el problema continúa, escríbenos a contacto@licitaempresa.es.'],
+  };
+  const [titulo, texto] = textos[p.get('estado')] || ['Tu alerta', 'Puedes crear alertas desde el buscador con el botón «Crear alerta».'];
+  c.innerHTML = `<h1>${esc(titulo)}</h1><p>${esc(texto)}</p><p><a href="./">Ir al buscador</a></p>`;
+})();
+</script>
+</body>
+</html>

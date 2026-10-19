@@ -85,7 +85,7 @@ select:disabled { opacity: .55; cursor: not-allowed; }
 .c-dias .check { margin: 4px 0 0; }
 .c-dias .check:first-child { margin-top: 0; }
 .campo > label, .campo > .etq { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
-input[type=text], input[type=search], input[type=number], select {
+input[type=text], input[type=search], input[type=number], input[type=email], select {
   width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--field);
 }
 input:hover, select:hover { border-color: var(--muted); }
@@ -183,7 +183,7 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
   .filtros.abierto { display: grid; }
   .filtros > * { grid-column: 1 / -1; }
   .boton-filtros { display: inline-block; }
-  .acciones { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+  .acciones { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .acciones select { width: 100%; }
   .boton { white-space: nowrap; }
   .lic { grid-template-columns: minmax(0, 1fr); padding: 14px 16px; gap: 8px; }
@@ -198,6 +198,19 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
   .lista { animation: aparecer .25s ease-out; }
   @keyframes aparecer { from { opacity: .4; } to { opacity: 1; } }
 }
+dialog { border: 0; border-radius: 14px; padding: 0; width: min(520px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgba(16, 42, 67, .35); }
+dialog::backdrop { background: rgba(15, 43, 70, .55); }
+#formAlerta { padding: 24px; }
+#formAlerta h2 { margin: 0 0 8px; font-size: 21px; line-height: 1.25; }
+.dlg-ayuda { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
+.dlg-filtros { margin: 0 0 18px; padding: 12px 14px; background: var(--field); border: 1px solid var(--line); border-radius: 8px; font-size: 14px; font-weight: 600; }
+.dlg-filtros.aviso { color: var(--urgent); font-weight: 500; }
+#formAlerta .etq { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.consentimiento { margin-top: 14px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.dlg-mensaje { min-height: 1em; margin: 14px 0 0; font-size: 14px; }
+.dlg-mensaje.error { color: var(--urgent); }
+.dlg-mensaje.ok { color: var(--ink); font-size: 15px; }
+.dlg-botones { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
@@ -291,7 +304,8 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
           <option value="recientes">Actualizadas recientemente</option>
           <option value="importe">Mayor presupuesto</option>
         </select>
-        <button type="button" class="boton boton-principal" id="csv">Descargar CSV</button>
+        <button type="button" class="boton" id="csv">Descargar CSV</button>
+        <button type="button" class="boton boton-principal" id="crearAlerta" hidden>Crear alerta</button>
       </div>
     </div>
     <ul class="lista" id="lista"></ul>
@@ -299,6 +313,26 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     <button type="button" class="boton mas" id="mas" hidden>Mostrar 50 más</button>
   </main>
 </div>
+
+<dialog id="dlgAlerta" aria-labelledby="dlgTitulo">
+  <form id="formAlerta" method="dialog" novalidate>
+    <h2 id="dlgTitulo">Recibe estas licitaciones cada mañana</h2>
+    <p class="dlg-ayuda">Te enviaremos un email al día con las licitaciones <strong>nuevas en plazo</strong> que coincidan con tus filtros actuales. Solo si hay novedades.</p>
+    <p class="dlg-filtros" id="dlgFiltros"></p>
+    <div id="dlgCampos">
+      <label for="alertaEmail" class="etq">Tu email</label>
+      <input type="email" id="alertaEmail" autocomplete="email" required placeholder="nombre@empresa.es">
+      <input type="text" name="web" id="alertaWeb" tabindex="-1" autocomplete="off" class="oculto" aria-hidden="true">
+      <label class="check consentimiento"><input type="checkbox" id="alertaAcepto">
+        <span>He leído la <a href="privacidad.html" target="_blank">política de privacidad</a> y acepto recibir un email diario con las licitaciones nuevas que coincidan con esta alerta. Puedo darme de baja en cualquier momento.</span></label>
+    </div>
+    <p class="dlg-mensaje" id="dlgMensaje" role="status" aria-live="polite"></p>
+    <div class="dlg-botones">
+      <button type="button" class="boton" id="dlgCerrar">Cancelar</button>
+      <button type="submit" class="boton boton-principal" id="dlgEnviar">Crear alerta</button>
+    </div>
+  </form>
+</dialog>
 
 <footer class="pie">
   <p>Fuente: Plataforma de Contratación del Sector Público, Ministerio de Hacienda, incluidas las plataformas autonómicas que agrega. Datos reutilizados conforme a su licencia de datos abiertos; la fecha de la última actualización figura arriba.</p>
@@ -690,6 +724,68 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
+  // ---------- alertas ----------
+  function filtrosAlerta() {
+    return { cpv: [...f.cpv], prov: [...f.prov], estatal: f.estatal, q: f.q, tipo: f.tipo, min: f.min, max: f.max };
+  }
+  function describirAlerta(a) {
+    const partes = [];
+    if (a.cpv.length) partes.push('CPV ' + a.cpv.map((c) => c + (nombreCPV.has(c) ? ' (' + nombreCPV.get(c) + ')' : '')).join(', '));
+    if (a.prov.length) partes.push(a.prov.map((p) => meta.provincias?.[p] || p).join(', ') + (a.estatal ? ' y ámbito estatal' : ''));
+    if (a.q) partes.push('«' + a.q + '»');
+    if (a.tipo) partes.push(meta.tipos?.[a.tipo] || a.tipo);
+    if (a.min) partes.push('desde ' + fmtEuro.format(+a.min));
+    if (a.max) partes.push('hasta ' + fmtEuro.format(+a.max));
+    return partes.join('. ');
+  }
+  function abrirAlerta() {
+    const a = filtrosAlerta();
+    const valida = a.cpv.length || a.prov.length || a.q;
+    $('dlgFiltros').textContent = valida ? describirAlerta(a)
+      : 'Primero elige al menos un código CPV, una provincia o un texto de búsqueda: así la alerta solo te enviará lo que te interesa.';
+    $('dlgFiltros').classList.toggle('aviso', !valida);
+    $('dlgCampos').hidden = !valida;
+    $('dlgEnviar').hidden = !valida;
+    $('dlgMensaje').textContent = ''; $('dlgMensaje').className = 'dlg-mensaje';
+    $('dlgCerrar').textContent = valida ? 'Cancelar' : 'Entendido';
+    $('dlgAlerta').showModal();
+    if (valida) $('alertaEmail').focus();
+  }
+  async function enviarAlerta(e) {
+    e.preventDefault();
+    const msg = $('dlgMensaje');
+    const email = $('alertaEmail').value.trim();
+    msg.className = 'dlg-mensaje error';
+    if (!$('alertaEmail').checkValidity() || !email) { msg.textContent = 'Escribe un email válido.'; $('alertaEmail').focus(); return; }
+    if (!$('alertaAcepto').checked) { msg.textContent = 'Para crear la alerta tienes que aceptar la política de privacidad.'; return; }
+    $('dlgEnviar').disabled = true; msg.className = 'dlg-mensaje'; msg.textContent = 'Creando la alerta…';
+    try {
+      const r = await fetch('/api/alertas', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, acepto: true, filtros: filtrosAlerta(), web: $('alertaWeb').value }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'No se ha podido crear la alerta. Inténtalo más tarde.');
+      msg.className = 'dlg-mensaje ok';
+      msg.innerHTML = `<strong>Casi listo.</strong> Te hemos enviado un email a ${esc(email)}. Pulsa el enlace que contiene para activar la alerta (si no lo ves, mira en spam).`
+        + (d.enlacePrueba ? `<br><a href="${esc(d.enlacePrueba)}">Enlace de prueba para confirmar</a>` : '');
+      $('dlgCampos').hidden = true; $('dlgEnviar').hidden = true; $('dlgCerrar').textContent = 'Cerrar';
+    } catch (err) {
+      msg.className = 'dlg-mensaje error'; msg.textContent = err.message;
+    } finally {
+      $('dlgEnviar').disabled = false;
+    }
+  }
+  function enlazarAlertas() {
+    // El botón solo aparece si las alertas están configuradas en el servidor.
+    fetch('/api/alertas', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : {})).then((d) => {
+      if (d.activas) $('crearAlerta').hidden = false;
+    }).catch(() => {});
+    $('crearAlerta').addEventListener('click', abrirAlerta);
+    $('dlgCerrar').addEventListener('click', () => $('dlgAlerta').close());
+    $('formAlerta').addEventListener('submit', enviarAlerta);
+  }
+
   // ---------- arranque ----------
   function haceCuanto(iso) {
     const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
@@ -732,6 +828,7 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     leerURL();
     pintarControles();
     enlazar();
+    enlazarAlertas();
     filtrar();
     window.addEventListener('hashchange', () => { leerURL(); pintarControles(); filtrar(); });
   }

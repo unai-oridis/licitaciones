@@ -464,7 +464,10 @@ async function main() {
       for (const [id, { leida }] of cambios) {
         if (!leida) { if (porId.delete(id)) bajas++; continue; }
         const antes = porId.get(id);
-        const item = { id, ...leida.item, fp: antes?.fp || leida.item.a };
+        // vt: cuándo la vimos por primera vez (para las alertas). En la primera carga se usa su fecha de publicación,
+        // para que una recarga completa no haga que todo parezca nuevo.
+        const vt = antes?.vt || (previo ? AHORA.toISOString().slice(0, 16) : `${leida.item.a}T00:00`);
+        const item = { id, ...leida.item, fp: antes?.fp || leida.item.a, vt };
         item.g = grupoDe(item);
         if (conservar(item)) { porId.set(id, item); if (!antes) altas++; }
         else if (porId.delete(id)) bajas++;
@@ -486,6 +489,7 @@ async function main() {
   let retiradas = 0;
   for (const [id, item] of porId) {
     if (!item.s) item.s = 'PUB';
+    if (!item.vt) item.vt = `${item.fp || item.a}T00:00`;
     item.g = grupoDe(item);
     if (!conservar(item)) { porId.delete(id); retiradas++; }
   }

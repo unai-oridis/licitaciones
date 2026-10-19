@@ -38,11 +38,25 @@ Edita `public/index.html` y haz `git add` → `commit` → `push`. Se publica so
 ## Ajustes
 
 - Frecuencia: línea `cron` en `.github/workflows/actualizar.yml`.
-- Volver a cargar desde cero: borra el contenido de `public/data/licitaciones.json`
-  (deja `{"meta":{},"items":[]}`) y lanza el workflow a mano.
+- Volver a cargar desde cero: lanza el workflow a mano marcando «Borrar los datos y cargarlo todo de nuevo».
 
 ## Fuente de los datos
 
 Plataforma de Contratación del Sector Público, Ministerio de Hacienda.
 Conjuntos «Licitaciones de perfiles de contratante alojados en la Plataforma» y
 «Licitaciones publicadas mediante mecanismos de agregación» (sin contratos menores).
+
+## Alertas por email
+
+- `functions/api/`: alta, confirmación y baja de alertas (Cloudflare Pages Functions).
+- `lib/alertas.mjs`: lógica común (filtros, emails, envío con Brevo).
+- `db/esquema.sql`: tabla de la base de datos D1 (se ejecuta una vez en la consola de D1).
+- `scripts/enviar-alertas.mjs`: envío diario, lo lanza el workflow tras la actualización de la mañana.
+
+Configuración necesaria:
+- En Cloudflare Pages (proyecto licitaempresa → Configuración): enlace a la base D1 con el nombre `DB`
+  y variables `BREVO_API_KEY` (secreta) y `SITIO=https://licitaempresa.es`.
+- En GitHub (Settings → Secrets and variables → Actions): `CF_ACCOUNT_ID`, `CF_D1_ID`, `CF_API_TOKEN`, `BREVO_API_KEY`.
+- En Brevo: dominio licitaempresa.es verificado y remitente `alertas@licitaempresa.es`.
+
+Mientras falte la configuración, el botón «Crear alerta» no aparece en la web.

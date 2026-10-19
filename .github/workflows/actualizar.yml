@@ -1,9 +1,11 @@
 name: Actualizar y publicar
 
 on:
-  # Dos veces al día (hora UTC: 05:17 y 13:17 → 07:17 y 15:17 en Madrid en verano)
+  # Dos veces al día (hora UTC: 05:17 y 13:17 → 07:17 y 15:17 en Madrid en verano).
+  # Las alertas por email se envían solo en la de la mañana.
   schedule:
-    - cron: '17 5,13 * * *'
+    - cron: '17 5 * * *'
+    - cron: '17 13 * * *'
   # Botón "Run workflow" en la pestaña Actions
   workflow_dispatch:
     inputs:
@@ -12,6 +14,10 @@ on:
         default: '6'
       reiniciar:
         description: 'Borrar los datos y cargarlo todo de nuevo (tarda 1-2 horas)'
+        type: boolean
+        default: false
+      enviar_alertas:
+        description: 'Enviar también las alertas por email al terminar'
         type: boolean
         default: false
   # Al subir cambios de la web (sin descargar datos)
@@ -79,3 +85,14 @@ jobs:
       - name: Publicar web
         id: publicar
         uses: actions/deploy-pages@v4
+
+      - name: Enviar alertas por email
+        if: github.event.schedule == '17 5 * * *' || github.event.inputs.enviar_alertas == 'true'
+        continue-on-error: true
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_D1_ID: ${{ secrets.CF_D1_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          SITIO: https://licitaempresa.es
+        run: node scripts/enviar-alertas.mjs
