@@ -7,9 +7,9 @@ on:
   # Botón "Run workflow" en la pestaña Actions
   workflow_dispatch:
     inputs:
-      dias_iniciales:
-        description: 'Solo para la primera carga: cuántos días hacia atrás leer'
-        default: '120'
+      meses_iniciales:
+        description: 'Solo para la primera carga: cuántos meses hacia atrás leer'
+        default: '3'
   # Al subir cambios de la web (sin descargar datos)
   push:
     branches: [main]
@@ -44,7 +44,7 @@ jobs:
       - name: Descargar licitaciones
         if: github.event_name != 'push'
         env:
-          DIAS_INICIALES: ${{ github.event.inputs.dias_iniciales || '120' }}
+          MESES_INICIALES: ${{ github.event.inputs.meses_iniciales || '3' }}
         run: node scripts/actualizar.mjs
 
       - name: Guardar datos en el repositorio
