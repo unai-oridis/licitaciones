@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Licitaciones abiertas</title>
+<meta name="description" content="Buscador gratuito de licitaciones públicas en plazo en España. Filtra por código CPV y provincia.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #EDF0F3;
+  --surface: #FFFFFF;
+  --ink: #15212B;
+  --muted: #5A6774;
+  --line: #D3DAE1;
+  --accent: #2443C9;
+  --accent-soft: #E3E8FB;
+  --urgent: #B3123B;
+  --urgent-soft: #FBE6EC;
+  --warn: #8A5A00;
+  --warn-soft: #FBF0D9;
+  --focus: #2443C9;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F161D; --surface: #17212B; --ink: #E6ECF1; --muted: #93A1AE; --line: #2A3743;
+    --accent: #8FA4FF; --accent-soft: #1F2A55; --urgent: #FF7A98; --urgent-soft: #3A1621;
+    --warn: #F0C46A; --warn-soft: #33270F; --focus: #8FA4FF; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 16px/1.5 "Public Sans", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+button, input, select { font: inherit; color: inherit; }
+
+/* Cabecera */
+.cabecera {
+  background: var(--surface); border-bottom: 1px solid var(--line);
+  padding: 20px 24px 18px;
+}
+.cabecera-in { max-width: 1280px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; }
+h1 { font-size: 26px; line-height: 1.2; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.estado-datos { color: var(--muted); font-size: 14px; margin: 0; }
+.estado-datos strong { color: var(--ink); font-weight: 600; }
+
+/* Estructura */
+.marco { max-width: 1280px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }
+.filtros { position: sticky; top: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; max-height: calc(100vh - 32px); overflow: auto; }
+.filtros h2 { font-size: 17px; margin: 0 0 14px; }
+.campo { margin-bottom: 18px; }
+.campo > label, .campo > .etq { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.ayuda { color: var(--muted); font-size: 13px; margin: 4px 0 0; line-height: 1.4; }
+input[type=text], input[type=search], input[type=number], select {
+  width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
+}
+input:focus, select:focus { border-color: var(--accent); }
+.fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; margin-top: 8px; cursor: pointer; }
+.check input { margin-top: 3px; accent-color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chips:empty { display: none; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer;
+  background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 3px 6px 3px 11px; font-size: 13px; font-weight: 600;
+}
+.chip span[aria-hidden] { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 14px; line-height: 1; }
+.chip:hover span[aria-hidden] { background: var(--accent); color: var(--surface); }
+.limpiar { background: none; border: 0; color: var(--accent); padding: 0; cursor: pointer; font-size: 14px; text-decoration: underline; }
+
+/* Resultados */
+.barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 12px; }
+.recuento { font-size: 18px; margin: 0; }
+.recuento strong { font-weight: 700; }
+.acciones { display: flex; gap: 10px; align-items: center; }
+.acciones select { width: auto; height: 36px; background: var(--surface); }
+.boton {
+  height: 36px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 14px; font-weight: 600;
+}
+.boton:hover { border-color: var(--accent); color: var(--accent); }
+.boton-filtros { display: none; }
+
+.lista { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.lic { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 0 20px; padding: 16px 20px; border-top: 1px solid var(--line); }
+.lic:first-child { border-top: 0; }
+.plazo { border-right: 1px solid var(--line); padding-right: 16px; }
+.dias { display: block; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -0.02em; }
+.dias small { font-size: 14px; font-weight: 600; letter-spacing: 0; margin-left: 3px; }
+.cierre { display: block; color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.35; }
+.lic.urgente .dias { color: var(--urgent); }
+.lic.pronto .dias { color: var(--warn); }
+.lic.sinfecha .dias { font-size: 16px; color: var(--muted); font-weight: 600; }
+.titulo { font-size: 16px; font-weight: 600; line-height: 1.35; margin: 0 0 4px; }
+.titulo a { color: var(--ink); text-decoration: none; }
+.titulo a:hover { color: var(--accent); text-decoration: underline; }
+.organo { margin: 0; color: var(--muted); font-size: 14px; }
+.datos { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.datos b { color: var(--ink); font-weight: 600; }
+.cpv { display: inline-block; background: var(--bg); border-radius: 4px; padding: 0 6px; color: var(--ink); cursor: pointer; border: 0; font-size: 13px; }
+.cpv:hover { background: var(--accent-soft); color: var(--accent); }
+.importe { text-align: right; white-space: nowrap; }
+.importe b { display: block; font-size: 17px; font-weight: 700; }
+.importe span { color: var(--muted); font-size: 12px; }
+
+.mas { display: block; margin: 16px auto 0; }
+.vacio { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 36px 24px; text-align: center; }
+.vacio p { margin: 0 0 6px; }
+.vacio p:first-child { font-weight: 600; font-size: 17px; }
+
+.pie { max-width: 1280px; margin: 0 auto; padding: 8px 24px 40px; color: var(--muted); font-size: 13px; }
+.pie p { margin: 0 0 6px; max-width: 80ch; }
+
+@media (max-width: 900px) {
+  .marco { grid-template-columns: 1fr; padding: 16px; gap: 16px; }
+  .cabecera { padding: 16px; }
+  .filtros { position: static; max-height: none; display: none; }
+  .filtros.abierto { display: block; }
+  .boton-filtros { display: inline-block; }
+  .acciones { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+  .acciones select { width: 100%; }
+  .boton { white-space: nowrap; }
+  .lic { grid-template-columns: minmax(0, 1fr); padding: 14px 16px; gap: 8px; }
+  .plazo { border-right: 0; padding: 0; display: flex; align-items: baseline; gap: 10px; }
+  .importe { text-align: left; display: flex; align-items: baseline; gap: 6px; }
+  .importe b { display: inline; }
+  .dias { font-size: 22px; }
+  .cierre { margin: 0; }
+  .pie { padding: 8px 16px 32px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lista { animation: aparecer .25s ease-out; }
+  @keyframes aparecer { from { opacity: .4; } to { opacity: 1; } }
+}
+.oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<header class="cabecera">
+  <div class="cabecera-in">
+    <h1>Licitaciones abiertas</h1>
+    <p class="estado-datos" id="estadoDatos">Cargando licitaciones…</p>
+  </div>
+</header>
+
+<div class="marco">
+  <aside class="filtros" id="filtros" aria-label="Filtros">
+    <h2>Filtrar</h2>
+
+    <div class="campo">
+      <label for="cpvEntrada">Código CPV</label>
+      <input type="text" id="cpvEntrada" list="cpvLista" placeholder="Ej.: 553 o hostelería" autocomplete="off">
+      <datalist id="cpvLista"></datalist>
+      <p class="ayuda">Escribe un código o elige un sector y pulsa Intro. «55» incluye todos los códigos que empiezan por 55.</p>
+      <div class="chips" id="cpvChips"></div>
+    </div>
+
+    <div class="campo">
+      <label for="provSelect">Provincia</label>
+      <select id="provSelect"><option value="">Añadir provincia o comunidad…</option></select>
+      <div class="chips" id="provChips"></div>
+      <label class="check"><input type="checkbox" id="incluirEstatal" checked> Incluir las de ámbito estatal o de varias provincias</label>
+    </div>
+
+    <div class="campo">
+      <label for="texto">Buscar en título u organismo</label>
+      <input type="search" id="texto" placeholder="Ej.: comedor, Ayuntamiento de Pamplona">
+    </div>
+
+    <div class="campo">
+      <label for="tipo">Tipo de contrato</label>
+      <select id="tipo"><option value="">Todos</option></select>
+    </div>
+
+    <div class="campo">
+      <span class="etq">Presupuesto sin IVA (€)</span>
+      <div class="fila2">
+        <input type="number" id="minimo" placeholder="Mínimo" min="0" step="1000" aria-label="Presupuesto mínimo">
+        <input type="number" id="maximo" placeholder="Máximo" min="0" step="1000" aria-label="Presupuesto máximo">
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="dias">Cierran en</label>
+      <select id="dias">
+        <option value="">Cualquier plazo</option>
+        <option value="7">Los próximos 7 días</option>
+        <option value="15">Los próximos 15 días</option>
+        <option value="30">Los próximos 30 días</option>
+      </select>
+      <label class="check"><input type="checkbox" id="ocultarSinFecha"> Ocultar las que no indican fecha de cierre</label>
+    </div>
+
+    <button type="button" class="limpiar" id="limpiar">Quitar todos los filtros</button>
+  </aside>
+
+  <main>
+    <div class="barra">
+      <p class="recuento" id="recuento" aria-live="polite"></p>
+      <div class="acciones">
+        <button type="button" class="boton boton-filtros" id="verFiltros" aria-controls="filtros" aria-expanded="false">Filtros</button>
+        <label class="oculto" for="orden">Ordenar</label>
+        <select id="orden">
+          <option value="cierre">Cierran antes</option>
+          <option value="recientes">Publicadas recientemente</option>
+          <option value="importe">Mayor presupuesto</option>
+        </select>
+        <button type="button" class="boton" id="csv">Descargar CSV</button>
+      </div>
+    </div>
+    <ul class="lista" id="lista"></ul>
+    <div id="vacio"></div>
+    <button type="button" class="boton mas" id="mas" hidden>Mostrar 50 más</button>
+  </main>
+</div>
+
+<footer class="pie">
+  <p>Fuente: Plataforma de Contratación del Sector Público, Ministerio de Hacienda, incluidas las plataformas autonómicas que agrega. Datos reutilizados conforme a su licencia de datos abiertos; la fecha de la última actualización figura arriba.</p>
+  <p>Esta web no es oficial. Antes de presentar una oferta, comprueba plazos y pliegos en el anuncio original, que es el que tiene validez. No incluye contratos menores.</p>
+</footer>
+
+<script>
+(() => {
+  const CPV_SECTORES = [
+    ['03','Agricultura, ganadería, pesca y silvicultura'],['09','Combustibles, electricidad y energía'],
+    ['14','Minería y metales'],['15','Alimentos, bebidas y tabaco'],['16','Maquinaria agrícola'],
+    ['18','Ropa, calzado y accesorios'],['19','Piel, textiles, plástico y caucho'],['22','Impresos'],
+    ['24','Productos químicos'],['30','Equipos de oficina e informática'],['31','Material eléctrico e iluminación'],
+    ['32','Radio, televisión y telecomunicaciones'],['33','Material médico, farmacéutico y de higiene'],
+    ['34','Vehículos y equipos de transporte'],['35','Seguridad, incendios, policía y defensa'],
+    ['37','Instrumentos musicales, deporte, juegos y juguetes'],['38','Equipo de laboratorio y precisión'],
+    ['39','Mobiliario, electrodomésticos y productos de limpieza'],['41','Agua'],['42','Maquinaria industrial'],
+    ['43','Maquinaria de minería y construcción'],['44','Materiales de construcción'],['45','Obras de construcción'],
+    ['48','Software y sistemas de información'],['50','Reparación y mantenimiento'],['51','Servicios de instalación'],
+    ['55','Hostelería y restauración'],['551','Servicios de hoteles'],['553','Servicios de restaurante y de servir comidas'],
+    ['554','Servicios de servir bebidas'],['555','Servicios de cantina y catering'],['5552','Servicios de catering'],
+    ['60','Transporte'],['63','Servicios auxiliares de transporte y agencias de viajes'],['64','Correos y telecomunicaciones'],
+    ['65','Servicios públicos (agua, gas, electricidad)'],['66','Servicios financieros y seguros'],['70','Servicios inmobiliarios'],
+    ['71','Arquitectura, ingeniería e inspección'],['72','Servicios informáticos'],['73','Investigación y desarrollo'],
+    ['75','Administración pública y defensa'],['76','Servicios para gas y petróleo'],['77','Servicios agrícolas y forestales'],
+    ['79','Servicios a empresas: asesoría, marketing, personal, seguridad'],['80','Enseñanza y formación'],
+    ['85','Salud y asistencia social'],['90','Residuos, limpieza y medio ambiente'],['909','Servicios de limpieza'],
+    ['92','Ocio, cultura y deporte'],['98','Otros servicios comunitarios y personales'],
+  ];
+  const nombreCPV = new Map(CPV_SECTORES);
+
+  const $ = (id) => document.getElementById(id);
+  const fmtEuro = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+  const fmtFecha = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const fmtFechaAño = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const quitarTildes = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+  let datos = { meta: {}, items: [] };
+  let resultado = [];
+  let mostrados = 0;
+  const POR_PAGINA = 50;
+  const f = { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: true, orden: 'cierre' };
+
+  // Fecha y hora actual en Madrid como "YYYY-MM-DDTHH:MM"
+  function ahoraMadrid() {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false })
+      .formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  }
+  const comoUTC = (s) => Date.parse(s + ':00Z');
+
+  // "55300000-3" -> "553"; "45" -> "45"
+  function normalizarCPV(v) {
+    const d = String(v).split('-')[0].replace(/\D/g, '').slice(0, 8);
+    if (d.length < 2) return null;
+    let r = d.replace(/0+$/, '');
+    if (r.length < 2) r = d.slice(0, 2);
+    return r;
+  }
+
+  // ---------- estado en la URL ----------
+  function leerURL() {
+    const h = new URLSearchParams(location.hash.slice(1));
+    f.cpv = (h.get('cpv') || '').split(',').map(normalizarCPV).filter(Boolean);
+    f.prov = (h.get('prov') || '').split(',').filter(Boolean);
+    f.q = h.get('q') || ''; f.tipo = h.get('tipo') || ''; f.min = h.get('min') || ''; f.max = h.get('max') || '';
+    f.dias = h.get('dias') || ''; f.sinFecha = h.get('sinfecha') === '1'; f.estatal = h.get('estatal') !== '0';
+    f.orden = h.get('orden') || 'cierre';
+  }
+  function escribirURL() {
+    const h = new URLSearchParams();
+    if (f.cpv.length) h.set('cpv', f.cpv.join(','));
+    if (f.prov.length) h.set('prov', f.prov.join(','));
+    for (const k of ['q', 'tipo', 'min', 'max', 'dias']) if (f[k]) h.set(k, f[k]);
+    if (f.sinFecha) h.set('sinfecha', '1');
+    if (!f.estatal) h.set('estatal', '0');
+    if (f.orden !== 'cierre') h.set('orden', f.orden);
+    const s = h.toString().replace(/%2C/g, ',');
+    history.replaceState(null, '', s ? '#' + s : location.pathname + location.search);
+  }
+
+  // ---------- controles ----------
+  function prepararControles() {
+    const m = datos.meta;
+    $('cpvLista').innerHTML = CPV_SECTORES.map(([c, n]) => `<option value="${c} ${esc(n)}"></option>`).join('');
+
+    let html = '<option value="">Añadir provincia o comunidad…</option>';
+    for (const [com, provs] of m.comunidades || []) {
+      html += `<optgroup label="${esc(com)}">`;
+      if (provs.length > 1) html += `<option value="${provs.join('+')}">${esc(com)} (todas)</option>`;
+      for (const p of provs) html += `<option value="${p}">${esc(m.provincias[p])}</option>`;
+      html += '</optgroup>';
+    }
+    $('provSelect').innerHTML = html;
+
+    const tiposUsados = new Set(datos.items.map((x) => x.tc).filter(Boolean));
+    $('tipo').innerHTML = '<option value="">Todos</option>' + Object.entries(m.tipos || {})
+      .filter(([c]) => tiposUsados.has(c)).map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join('');
+  }
+
+  function pintarControles() {
+    $('cpvChips').innerHTML = f.cpv.map((c) =>
+      `<button type="button" class="chip" data-cpv="${c}" aria-label="Quitar CPV ${c}">${c}${nombreCPV.has(c) ? ' ' + esc(nombreCPV.get(c)) : ''}<span aria-hidden="true">×</span></button>`).join('');
+    $('provChips').innerHTML = f.prov.map((p) =>
+      `<button type="button" class="chip" data-prov="${p}" aria-label="Quitar ${esc(datos.meta.provincias?.[p] || p)}">${esc(datos.meta.provincias?.[p] || p)}<span aria-hidden="true">×</span></button>`).join('');
+    $('texto').value = f.q; $('tipo').value = f.tipo; $('minimo').value = f.min; $('maximo').value = f.max;
+    $('dias').value = f.dias; $('ocultarSinFecha').checked = f.sinFecha; $('incluirEstatal').checked = f.estatal; $('orden').value = f.orden;
+  }
+
+  function añadirCPV(valor) {
+    let v = valor.trim();
+    if (!v) return;
+    let codigo = /^\d/.test(v) ? normalizarCPV(v.split(' ')[0]) : null;
+    if (!codigo) {
+      const buscado = quitarTildes(v);
+      const hallado = CPV_SECTORES.find(([, n]) => quitarTildes(n).includes(buscado));
+      codigo = hallado ? hallado[0] : null;
+    }
+    if (!codigo) { $('cpvEntrada').setCustomValidity('Escribe al menos dos cifras de un código CPV'); $('cpvEntrada').reportValidity(); return; }
+    $('cpvEntrada').setCustomValidity('');
+    if (!f.cpv.includes(codigo)) f.cpv.push(codigo);
+    $('cpvEntrada').value = '';
+    cambiar();
+  }
+
+  function cambiar() { pintarControles(); escribirURL(); filtrar(); }
+
+  function enlazar() {
+    $('cpvEntrada').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); añadirCPV(e.target.value); } });
+    $('cpvEntrada').addEventListener('change', (e) => { if (/^\d{2,}\s\S/.test(e.target.value)) añadirCPV(e.target.value); });
+    $('cpvEntrada').addEventListener('input', (e) => e.target.setCustomValidity(''));
+    $('provSelect').addEventListener('change', (e) => {
+      for (const p of e.target.value.split('+').filter(Boolean)) if (!f.prov.includes(p)) f.prov.push(p);
+      e.target.value = ''; cambiar();
+    });
+    document.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (chip?.dataset.cpv) { f.cpv = f.cpv.filter((c) => c !== chip.dataset.cpv); cambiar(); }
+      if (chip?.dataset.prov) { f.prov = f.prov.filter((p) => p !== chip.dataset.prov); cambiar(); }
+      const cpv = e.target.closest('.cpv');
+      if (cpv) { const c = normalizarCPV(cpv.dataset.c); if (!f.cpv.includes(c)) { f.cpv.push(c); cambiar(); } }
+    });
+    let espera;
+    $('texto').addEventListener('input', (e) => { clearTimeout(espera); espera = setTimeout(() => { f.q = e.target.value.trim(); escribirURL(); filtrar(); }, 200); });
+    const simples = { tipo: 'tipo', minimo: 'min', maximo: 'max', dias: 'dias', orden: 'orden' };
+    for (const [id, k] of Object.entries(simples)) $(id).addEventListener('change', (e) => { f[k] = e.target.value; escribirURL(); filtrar(); });
+    $('ocultarSinFecha').addEventListener('change', (e) => { f.sinFecha = e.target.checked; escribirURL(); filtrar(); });
+    $('incluirEstatal').addEventListener('change', (e) => { f.estatal = e.target.checked; escribirURL(); filtrar(); });
+    $('limpiar').addEventListener('click', () => {
+      Object.assign(f, { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: true });
+      cambiar();
+    });
+    $('mas').addEventListener('click', pintarMas);
+    $('csv').addEventListener('click', descargarCSV);
+    $('verFiltros').addEventListener('click', () => {
+      const abierto = $('filtros').classList.toggle('abierto');
+      $('verFiltros').setAttribute('aria-expanded', abierto);
+    });
+  }
+
+  // ---------- filtrado ----------
+  function filtrar() {
+    const ahora = ahoraMadrid();
+    const tAhora = comoUTC(ahora);
+    const palabras = quitarTildes(f.q).split(/\s+/).filter(Boolean);
+    const provs = new Set(f.prov);
+    const min = f.min ? Number(f.min) : null;
+    const max = f.max ? Number(f.max) : null;
+    const tope = f.dias ? tAhora + Number(f.dias) * 864e5 : null;
+
+    resultado = datos.items.filter((x) => {
+      if (x.f && x.f < ahora) return false;
+      if (!x.f && (f.sinFecha || tope)) return false;
+      if (tope && x._t > tope) return false;
+      if (f.cpv.length && !x.c.some((c) => f.cpv.some((p) => c.startsWith(p)))) return false;
+      if (provs.size && !(provs.has(x.p) || (f.estatal && x.p === '00'))) return false;
+      if (f.tipo && x.tc !== f.tipo) return false;
+      if (min != null && !(x.i >= min)) return false;
+      if (max != null && !(x.i <= max)) return false;
+      if (palabras.length && !palabras.every((w) => x._s.includes(w))) return false;
+      return true;
+    });
+
+    const orden = {
+      cierre: (a, b) => (a._t ?? Infinity) - (b._t ?? Infinity),
+      recientes: (a, b) => (a.fp < b.fp ? 1 : a.fp > b.fp ? -1 : 0),
+      importe: (a, b) => (b.i ?? -1) - (a.i ?? -1),
+    }[f.orden] || (() => 0);
+    resultado.sort(orden);
+
+    const n = resultado.length;
+    $('recuento').innerHTML = `<strong>${n.toLocaleString('es-ES')}</strong> ${n === 1 ? 'licitación' : 'licitaciones'} en plazo`;
+    const activos = f.cpv.length + f.prov.length + ['q','tipo','min','max','dias'].filter((k) => f[k]).length + (f.sinFecha ? 1 : 0);
+    $('verFiltros').textContent = activos ? `Filtros (${activos})` : 'Filtros';
+    $('csv').disabled = n === 0;
+
+    $('lista').innerHTML = '';
+    mostrados = 0;
+    pintarMas(tAhora);
+    $('vacio').innerHTML = n ? '' : `<div class="vacio"><p>Ninguna licitación en plazo cumple estos filtros.</p><p>Prueba con un código CPV más corto (por ejemplo «55» en vez de «55321») o añade más provincias.</p></div>`;
+  }
+
+  function pintarMas(tAhora) {
+    if (typeof tAhora !== 'number') tAhora = comoUTC(ahoraMadrid());
+    const trozo = resultado.slice(mostrados, mostrados + POR_PAGINA);
+    $('lista').insertAdjacentHTML('beforeend', trozo.map((x) => fila(x, tAhora)).join(''));
+    mostrados += trozo.length;
+    const quedan = resultado.length - mostrados;
+    $('mas').hidden = quedan <= 0;
+    $('mas').textContent = `Mostrar ${Math.min(quedan, POR_PAGINA)} más`;
+  }
+
+  function fila(x, tAhora) {
+    const m = datos.meta;
+    let clase = '', plazo;
+    if (x._t) {
+      const horas = (x._t - tAhora) / 36e5;
+      const dias = Math.floor(horas / 24);
+      const d = new Date(x._t);
+      const fecha = (d.getUTCFullYear() === new Date(tAhora).getUTCFullYear() ? fmtFecha : fmtFechaAño).format(d);
+      const hora = x.f.slice(11, 16);
+      if (horas < 24) { clase = 'urgente'; plazo = `<span class="dias">${Math.max(1, Math.ceil(horas))}<small>h</small></span>`; }
+      else { clase = dias <= 3 ? 'urgente' : dias <= 7 ? 'pronto' : ''; plazo = `<span class="dias">${dias}<small>${dias === 1 ? 'día' : 'días'}</small></span>`; }
+      plazo += `<span class="cierre">Cierra el ${fecha}${hora && hora !== '23:59' ? ', ' + hora : ''}</span>`;
+    } else {
+      clase = 'sinfecha';
+      plazo = `<span class="dias">Sin fecha</span><span class="cierre">Consulta el plazo en el anuncio</span>`;
+    }
+    const cpvs = x.c.slice(0, 4).map((c) => `<button type="button" class="cpv" data-c="${c}" title="Filtrar por ${c}">${c}</button>`).join(' ')
+      + (x.c.length > 4 ? ` +${x.c.length - 4}` : '');
+    const datosFila = [
+      `<span>${esc(m.provincias?.[x.p] || 'Sin especificar')}</span>`,
+      x.tc && m.tipos?.[x.tc] ? `<span>${esc(m.tipos[x.tc])}</span>` : '',
+      x.pr && m.procedimientos?.[x.pr] ? `<span>${esc(m.procedimientos[x.pr])}</span>` : '',
+      x.c.length ? `<span>CPV ${cpvs}</span>` : '',
+      x.e ? `<span>Exp. ${esc(x.e)}</span>` : '',
+    ].join('');
+    return `<li class="lic ${clase}">
+      <div class="plazo">${plazo}</div>
+      <div>
+        <h3 class="titulo"><a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a></h3>
+        <p class="organo">${esc(x.o)}</p>
+        <p class="datos">${datosFila}</p>
+      </div>
+      <div class="importe">${x.i ? `<b>${fmtEuro.format(x.i)}</b><span>sin IVA</span>` : '<span>Importe no indicado</span>'}</div>
+    </li>`;
+  }
+
+  // ---------- CSV ----------
+  function descargarCSV() {
+    const m = datos.meta;
+    const cab = ['Título', 'Organismo', 'Expediente', 'Provincia', 'Tipo', 'Procedimiento', 'CPV', 'Presupuesto sin IVA', 'Fecha límite', 'Enlace'];
+    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const filas = resultado.map((x) => [
+      x.t, x.o, x.e, m.provincias?.[x.p], m.tipos?.[x.tc], m.procedimientos?.[x.pr], x.c.join(' '),
+      x.i != null ? String(x.i).replace('.', ',') : '', x.f ? x.f.replace('T', ' ') : '', x.u,
+    ].map(q).join(';'));
+    const blob = new Blob(['﻿' + [cab.map(q).join(';'), ...filas].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `licitaciones-${ahoraMadrid().slice(0, 10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // ---------- arranque ----------
+  function haceCuanto(iso) {
+    const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
+    if (min < 60) return `hace ${Math.max(1, min)} min`;
+    const h = Math.round(min / 60);
+    if (h < 48) return `hace ${h} h`;
+    return `hace ${Math.round(h / 24)} días`;
+  }
+
+  async function iniciar() {
+    try {
+      const r = await fetch('data/licitaciones.json', { cache: 'no-cache' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      datos = await r.json();
+    } catch (e) {
+      $('estadoDatos').textContent = 'No se han podido cargar los datos. Recarga la página en unos minutos.';
+      $('vacio').innerHTML = '<div class="vacio"><p>No hay datos disponibles ahora mismo.</p><p>Si acabas de publicar la web, espera a que termine la primera actualización automática.</p></div>';
+      return;
+    }
+    for (const x of datos.items) {
+      x._t = x.f ? comoUTC(x.f) : null;
+      x._s = quitarTildes(`${x.t} ${x.o} ${x.e}`);
+      x.c = x.c || [];
+    }
+    const m = datos.meta;
+    $('estadoDatos').innerHTML = m.actualizado
+      ? `<strong>${(m.total ?? datos.items.length).toLocaleString('es-ES')}</strong> en plazo en toda España, actualizado ${haceCuanto(m.actualizado)}`
+      : 'Todavía no hay datos: la primera actualización automática está pendiente.';
+    prepararControles();
+    leerURL();
+    pintarControles();
+    enlazar();
+    filtrar();
+    window.addEventListener('hashchange', () => { leerURL(); pintarControles(); filtrar(); });
+  }
+  iniciar();
+})();
+</script>
+</body>
+</html>

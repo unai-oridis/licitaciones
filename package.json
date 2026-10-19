@@ -1,0 +1,16 @@
+{
+  "name": "licitaciones-abiertas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Buscador gratuito de licitaciones públicas abiertas en España, por CPV y provincia",
+  "type": "module",
+  "scripts": {
+    "actualizar": "node scripts/actualizar.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.11.2"
+  }
+}
