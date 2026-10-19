@@ -10,25 +10,31 @@
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #EDF0F3;
+  --bg: #F3F5F8;
   --surface: #FFFFFF;
-  --ink: #15212B;
-  --muted: #5A6774;
-  --line: #D3DAE1;
-  --accent: #2443C9;
-  --accent-soft: #E3E8FB;
-  --urgent: #B3123B;
-  --urgent-soft: #FBE6EC;
-  --warn: #8A5A00;
-  --warn-soft: #FBF0D9;
-  --focus: #2443C9;
+  --ink: #102A43;
+  --muted: #52667A;
+  --line: #DCE3EA;
+  --line-strong: #C5D0DB;
+  --accent: #0A6E8A;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E3F1F5;
+  --head: #0F2B46;
+  --head-ink: #FFFFFF;
+  --head-muted: #A9BDD1;
+  --field: #F7F9FB;
+  --urgent: #BF2A3A;
+  --warn: #9A5B00;
+  --focus: #0A6E8A;
+  --shadow: 0 1px 2px rgba(16, 42, 67, .06), 0 8px 24px rgba(16, 42, 67, .08);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0F161D; --surface: #17212B; --ink: #E6ECF1; --muted: #93A1AE; --line: #2A3743;
-    --accent: #8FA4FF; --accent-soft: #1F2A55; --urgent: #FF7A98; --urgent-soft: #3A1621;
-    --warn: #F0C46A; --warn-soft: #33270F; --focus: #8FA4FF; color-scheme: dark;
+    --bg: #0B1622; --surface: #12202E; --ink: #E4ECF3; --muted: #93A6B8; --line: #22344A; --line-strong: #2E4560;
+    --accent: #4FB3CF; --accent-ink: #06202A; --accent-soft: #123447; --head: #081320; --head-ink: #F2F6FA; --head-muted: #8FA6BD;
+    --field: #0E1B28; --urgent: #FF7B8A; --warn: #F2C063; --focus: #4FB3CF;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3); color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
@@ -43,19 +49,17 @@ a { color: var(--accent); }
 button, input, select { font: inherit; color: inherit; }
 
 /* Cabecera */
-.cabecera {
-  background: var(--surface); border-bottom: 1px solid var(--line);
-  padding: 20px 24px 18px;
-}
-.cabecera-in { max-width: 1440px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; }
-h1 { font-size: 26px; line-height: 1.2; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
-.estado-datos { color: var(--muted); font-size: 14px; margin: 0; }
-.estado-datos strong { color: var(--ink); font-weight: 600; }
+.cabecera { background: var(--head); color: var(--head-ink); padding: 28px 24px 72px; }
+.cabecera-in { max-width: 1440px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 700; margin: 0; letter-spacing: -0.015em; }
+.lema { margin: 6px 0 0; color: var(--head-muted); font-size: 15px; }
+.estado-datos { color: var(--head-muted); font-size: 14px; margin: 0; text-align: right; }
+.estado-datos strong { display: block; color: var(--head-ink); font-size: 28px; line-height: 1.1; font-weight: 700; letter-spacing: -0.01em; }
 
 /* Estructura */
-.marco { max-width: 1440px; margin: 0 auto; padding: 20px 24px 24px; }
+.marco { max-width: 1440px; margin: -48px auto 0; padding: 0 24px 24px; position: relative; }
 .filtros {
-  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-bottom: 20px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px 16px; margin-bottom: 24px; box-shadow: var(--shadow);
   display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px 16px; align-items: end;
 }
 .campo { min-width: 0; }
@@ -70,9 +74,11 @@ h1 { font-size: 26px; line-height: 1.2; font-weight: 700; margin: 0; letter-spac
 .c-dias .check:first-child { margin-top: 0; }
 .campo > label, .campo > .etq { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
 input[type=text], input[type=search], input[type=number], select {
-  width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
+  width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--field);
 }
-input:focus, select:focus { border-color: var(--accent); }
+input:hover, select:hover { border-color: var(--muted); }
+input:focus, select:focus { border-color: var(--accent); background: var(--surface); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+::placeholder { color: var(--muted); opacity: .8; }
 .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; margin-top: 8px; cursor: pointer; }
 .check input { margin-top: 3px; accent-color: var(--accent); }
@@ -82,7 +88,7 @@ input:focus, select:focus { border-color: var(--accent); }
   background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 3px 6px 3px 11px; font-size: 13px; font-weight: 600;
 }
 .chip span[aria-hidden] { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 14px; line-height: 1; }
-.chip:hover span[aria-hidden] { background: var(--accent); color: var(--surface); }
+.chip:hover span[aria-hidden] { background: var(--accent); color: var(--accent-ink); }
 .limpiar { background: none; border: 0; color: var(--accent); padding: 0; cursor: pointer; font-size: 14px; text-decoration: underline; }
 
 /* Resultados */
@@ -90,16 +96,20 @@ input:focus, select:focus { border-color: var(--accent); }
 .recuento { font-size: 18px; margin: 0; }
 .recuento strong { font-weight: 700; }
 .acciones { display: flex; gap: 10px; align-items: center; }
-.acciones select { width: auto; height: 36px; background: var(--surface); }
+.acciones select { width: auto; height: 38px; background: var(--surface); }
 .boton {
-  height: 36px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 14px; font-weight: 600;
+  height: 38px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--surface); cursor: pointer; font-size: 14px; font-weight: 600;
 }
 .boton:hover { border-color: var(--accent); color: var(--accent); }
+.boton-principal { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.boton-principal:hover { filter: brightness(1.08); color: var(--accent-ink); }
+.boton:disabled { opacity: .5; cursor: default; }
 .boton-filtros { display: none; }
 
-.lista { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.lic { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 0 20px; padding: 16px 20px; border-top: 1px solid var(--line); }
+.lista { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+.lic { display: grid; grid-template-columns: 124px minmax(0, 1fr) auto; gap: 0 24px; padding: 18px 22px; border-top: 1px solid var(--line); border-left: 3px solid transparent; }
 .lic:first-child { border-top: 0; }
+.lic:hover { background: var(--field); border-left-color: var(--accent); }
 .plazo { border-right: 1px solid var(--line); padding-right: 16px; }
 .dias { display: block; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -0.02em; }
 .dias small { font-size: 14px; font-weight: 600; letter-spacing: 0; margin-left: 3px; }
@@ -113,14 +123,14 @@ input:focus, select:focus { border-color: var(--accent); }
 .organo { margin: 0; color: var(--muted); font-size: 14px; }
 .datos { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 0; font-size: 13px; color: var(--muted); }
 .datos b { color: var(--ink); font-weight: 600; }
-.cpv { display: inline-block; background: var(--bg); border-radius: 4px; padding: 0 6px; color: var(--ink); cursor: pointer; border: 0; font-size: 13px; }
+.cpv { display: inline-block; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; color: var(--ink); cursor: pointer; font-size: 13px; }
 .cpv:hover { background: var(--accent-soft); color: var(--accent); }
 .importe { text-align: right; white-space: nowrap; }
 .importe b { display: block; font-size: 17px; font-weight: 700; }
 .importe span { color: var(--muted); font-size: 12px; }
 
 .mas { display: block; margin: 16px auto 0; }
-.vacio { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 36px 24px; text-align: center; }
+.vacio { background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 12px; padding: 36px 24px; text-align: center; }
 .vacio p { margin: 0 0 6px; }
 .vacio p:first-child { font-weight: 600; font-size: 17px; }
 
@@ -132,8 +142,12 @@ input:focus, select:focus { border-color: var(--accent); }
   .c-texto { grid-column: span 12; }
 }
 @media (max-width: 900px) {
-  .marco { padding: 16px; }
-  .cabecera { padding: 16px; }
+  .marco { margin-top: 0; padding: 16px; }
+  .cabecera { padding: 20px 16px; }
+  h1 { font-size: 24px; }
+  .estado-datos { text-align: left; }
+  .estado-datos strong { display: inline; font-size: inherit; }
+  .filtros { box-shadow: none; }
   .filtros { display: none; grid-template-columns: minmax(0, 1fr); }
   .filtros.abierto { display: grid; }
   .filtros > * { grid-column: 1 / -1; }
@@ -160,7 +174,10 @@ input:focus, select:focus { border-color: var(--accent); }
 
 <header class="cabecera">
   <div class="cabecera-in">
-    <h1>Licitaciones abiertas</h1>
+    <div>
+      <h1>Licitaciones abiertas</h1>
+      <p class="lema">Concursos públicos en plazo de toda España, actualizados cada día. Gratis y sin registro.</p>
+    </div>
     <p class="estado-datos" id="estadoDatos">Cargando licitaciones…</p>
   </div>
 </header>
@@ -208,7 +225,7 @@ input:focus, select:focus { border-color: var(--accent); }
     </div>
 
     <div class="campo c-dias">
-      <label class="check"><input type="checkbox" id="incluirEstatal" checked> Incluir las de ámbito estatal o de varias provincias</label>
+      <label class="check"><input type="checkbox" id="incluirEstatal"> Incluir las de ámbito estatal o de varias provincias</label>
       <label class="check"><input type="checkbox" id="ocultarSinFecha"> Ocultar las que no indican fecha de cierre</label>
     </div>
 
@@ -229,7 +246,7 @@ input:focus, select:focus { border-color: var(--accent); }
           <option value="recientes">Publicadas recientemente</option>
           <option value="importe">Mayor presupuesto</option>
         </select>
-        <button type="button" class="boton" id="csv">Descargar CSV</button>
+        <button type="button" class="boton boton-principal" id="csv">Descargar CSV</button>
       </div>
     </div>
     <ul class="lista" id="lista"></ul>
@@ -279,7 +296,7 @@ input:focus, select:focus { border-color: var(--accent); }
   let resultado = [];
   let mostrados = 0;
   const POR_PAGINA = 50;
-  const f = { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: true, orden: 'cierre' };
+  const f = { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: false, orden: 'cierre' };
 
   // Fecha y hora actual en Madrid como "YYYY-MM-DDTHH:MM"
   function ahoraMadrid() {
@@ -304,7 +321,7 @@ input:focus, select:focus { border-color: var(--accent); }
     f.cpv = (h.get('cpv') || '').split(',').map(normalizarCPV).filter(Boolean);
     f.prov = (h.get('prov') || '').split(',').filter(Boolean);
     f.q = h.get('q') || ''; f.tipo = h.get('tipo') || ''; f.min = h.get('min') || ''; f.max = h.get('max') || '';
-    f.dias = h.get('dias') || ''; f.sinFecha = h.get('sinfecha') === '1'; f.estatal = h.get('estatal') !== '0';
+    f.dias = h.get('dias') || ''; f.sinFecha = h.get('sinfecha') === '1'; f.estatal = h.get('estatal') === '1';
     f.orden = h.get('orden') || 'cierre';
   }
   function escribirURL() {
@@ -313,7 +330,7 @@ input:focus, select:focus { border-color: var(--accent); }
     if (f.prov.length) h.set('prov', f.prov.join(','));
     for (const k of ['q', 'tipo', 'min', 'max', 'dias']) if (f[k]) h.set(k, f[k]);
     if (f.sinFecha) h.set('sinfecha', '1');
-    if (!f.estatal) h.set('estatal', '0');
+    if (f.estatal) h.set('estatal', '1');
     if (f.orden !== 'cierre') h.set('orden', f.orden);
     const s = h.toString().replace(/%2C/g, ',');
     history.replaceState(null, '', s ? '#' + s : location.pathname + location.search);
@@ -388,7 +405,7 @@ input:focus, select:focus { border-color: var(--accent); }
     $('ocultarSinFecha').addEventListener('change', (e) => { f.sinFecha = e.target.checked; escribirURL(); filtrar(); });
     $('incluirEstatal').addEventListener('change', (e) => { f.estatal = e.target.checked; escribirURL(); filtrar(); });
     $('limpiar').addEventListener('click', () => {
-      Object.assign(f, { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: true });
+      Object.assign(f, { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: false });
       cambiar();
     });
     $('mas').addEventListener('click', pintarMas);
@@ -530,7 +547,7 @@ input:focus, select:focus { border-color: var(--accent); }
     }
     const m = datos.meta;
     $('estadoDatos').innerHTML = m.actualizado
-      ? `<strong>${(m.total ?? datos.items.length).toLocaleString('es-ES')}</strong> en plazo en toda España, actualizado ${haceCuanto(m.actualizado)}`
+      ? `<strong>${new Intl.NumberFormat('es-ES', { useGrouping: 'always' }).format(m.total ?? datos.items.length)}</strong> licitaciones en plazo, actualizadas ${haceCuanto(m.actualizado)}`
       : 'Todavía no hay datos: la primera actualización automática está pendiente.';
     prepararControles();
     leerURL();
