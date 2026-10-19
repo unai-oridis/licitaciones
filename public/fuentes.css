@@ -1,0 +1,5 @@
+/* Public Sans (licencia SIL Open Font License), alojada en esta misma web para no enviar datos a terceros. */
+@font-face { font-family: "Public Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/public-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Public Sans"; font-style: normal; font-weight: 500; font-display: swap; src: url("fonts/public-sans-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Public Sans"; font-style: normal; font-weight: 600; font-display: swap; src: url("fonts/public-sans-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Public Sans"; font-style: normal; font-weight: 700; font-display: swap; src: url("fonts/public-sans-latin-700-normal.woff2") format("woff2"); }

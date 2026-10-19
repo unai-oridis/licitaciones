@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Licitaciones abiertas</title>
 <meta name="description" content="Buscador gratuito de licitaciones públicas en plazo en España. Filtra por código CPV y provincia.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="fuentes.css">
 <style>
 :root {
   --bg: #F3F5F8;
@@ -136,6 +134,9 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 
 .pie { max-width: 1440px; margin: 0 auto; padding: 8px 24px 40px; color: var(--muted); font-size: 13px; }
 .pie p { margin: 0 0 6px; max-width: 80ch; }
+.legal { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.legal a { color: var(--muted); }
+.legal a:hover { color: var(--accent); }
 
 @media (max-width: 1100px) and (min-width: 901px) {
   .c-cpv, .c-prov, .c-tipo, .c-importe, .c-dias { grid-column: span 6; }
@@ -258,6 +259,13 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 <footer class="pie">
   <p>Fuente: Plataforma de Contratación del Sector Público, Ministerio de Hacienda, incluidas las plataformas autonómicas que agrega. Datos reutilizados conforme a su licencia de datos abiertos; la fecha de la última actualización figura arriba.</p>
   <p>Esta web no es oficial. Antes de presentar una oferta, comprueba plazos y pliegos en el anuncio original, que es el que tiene validez. No incluye contratos menores.</p>
+  <nav class="legal" aria-label="Información legal">
+    <span>© <span id="anio">2026</span> Soluciones Globales Echeyde 360, S.L.U.</span>
+    <a href="aviso-legal.html">Aviso legal</a>
+    <a href="privacidad.html">Privacidad</a>
+    <a href="cookies.html">Cookies</a>
+    <a href="mailto:contacto@licitaempresa.es">contacto@licitaempresa.es</a>
+  </nav>
 </footer>
 
 <script>
@@ -556,6 +564,7 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
     filtrar();
     window.addEventListener('hashchange', () => { leerURL(); pintarControles(); filtrar(); });
   }
+  try { $('anio').textContent = new Date().getFullYear(); } catch (e) {}
   iniciar();
 })();
 </script>
