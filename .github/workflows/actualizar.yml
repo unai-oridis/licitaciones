@@ -10,6 +10,10 @@ on:
       meses_iniciales:
         description: 'Solo para la primera carga: cuántos meses hacia atrás leer'
         default: '3'
+      reiniciar:
+        description: 'Borrar los datos y cargarlo todo de nuevo (tarda unos 45 min)'
+        type: boolean
+        default: false
   # Al subir cambios de la web (sin descargar datos)
   push:
     branches: [main]
@@ -40,6 +44,10 @@ jobs:
 
       - name: Instalar
         run: npm ci
+
+      - name: Reiniciar datos
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.reiniciar == 'true'
+        run: echo '{"meta":{},"items":[]}' > public/data/licitaciones.json
 
       - name: Descargar licitaciones
         if: github.event_name != 'push'

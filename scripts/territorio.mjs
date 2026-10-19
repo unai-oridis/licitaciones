@@ -69,6 +69,13 @@ export function provinciaDesdeNuts(codigo) {
   return null;
 }
 
+// ¿La provincia `prov` está dentro del código NUTS de comunidad/región `nuts`? (p. ej. ES51 → Cataluña)
+export function provinciaEnNuts(prov, nuts) {
+  const c = String(nuts || '').trim().toUpperCase();
+  if (!prov || c.length < 3) return false; // "ES" (toda España) no sirve para precisar
+  return Object.entries(NUTS3).some(([n3, p]) => p === prov && n3.startsWith(c));
+}
+
 export function provinciaDesdeCP(cp) {
   const m = String(cp || '').trim().match(/^(\d{2})\d{3}$/);
   if (!m) return null;

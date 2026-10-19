@@ -14,7 +14,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { XMLParser } from 'fast-xml-parser';
-import { COMUNIDADES, PROVINCIAS, provinciaDesdeNuts, provinciaDesdeCP } from './territorio.mjs';
+import { COMUNIDADES, PROVINCIAS, provinciaDesdeNuts, provinciaDesdeCP, provinciaEnNuts } from './territorio.mjs';
 
 const FEEDS = [
   {
@@ -119,16 +119,23 @@ function cpvsDe(proyecto, conjunto) {
 function provinciaDe(cfs) {
   const pp = cfs.ProcurementProject || {};
   const lugares = [pp.RealizedLocation, ...(cfs.ProcurementProjectLot || []).map((l) => l.ProcurementProject?.RealizedLocation)];
+  let nutsAmplio = null; // código de comunidad o de toda España
   for (const lugar of lugares) {
     if (!lugar) continue;
-    const porNuts = provinciaDesdeNuts(txt(lugar.CountrySubentityCode));
+    const codigo = txt(lugar.CountrySubentityCode);
+    const porNuts = provinciaDesdeNuts(codigo);
     if (porNuts && porNuts !== '00') return porNuts;
     const porCP = provinciaDesdeCP(txt(lugar.Address?.PostalZone));
     if (porCP) return porCP;
-    if (porNuts) return porNuts;
+    if (porNuts && !nutsAmplio) nutsAmplio = codigo;
   }
   const party = cfs.LocatedContractingParty?.Party;
-  return provinciaDesdeCP(txt(party?.PostalAddress?.PostalZone)) || '99';
+  const cpOrgano = provinciaDesdeCP(txt(party?.PostalAddress?.PostalZone));
+  if (nutsAmplio) {
+    // Solo se indica la comunidad: si el organismo está en una provincia de esa comunidad, se usa esa.
+    return provinciaEnNuts(cpOrgano, nutsAmplio) ? cpOrgano : '00';
+  }
+  return cpOrgano || '99';
 }
 
 function leerEntrada(e, fuente) {

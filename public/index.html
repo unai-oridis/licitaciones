@@ -47,18 +47,28 @@ button, input, select { font: inherit; color: inherit; }
   background: var(--surface); border-bottom: 1px solid var(--line);
   padding: 20px 24px 18px;
 }
-.cabecera-in { max-width: 1280px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; }
+.cabecera-in { max-width: 1440px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; }
 h1 { font-size: 26px; line-height: 1.2; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
 .estado-datos { color: var(--muted); font-size: 14px; margin: 0; }
 .estado-datos strong { color: var(--ink); font-weight: 600; }
 
 /* Estructura */
-.marco { max-width: 1280px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }
-.filtros { position: sticky; top: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; max-height: calc(100vh - 32px); overflow: auto; }
-.filtros h2 { font-size: 17px; margin: 0 0 14px; }
-.campo { margin-bottom: 18px; }
+.marco { max-width: 1440px; margin: 0 auto; padding: 20px 24px 24px; }
+.filtros {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-bottom: 20px;
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px 16px; align-items: end;
+}
+.campo { min-width: 0; }
+.c-cpv, .c-prov, .c-tipo, .c-dias { grid-column: span 3; }
+.c-texto { grid-column: span 6; }
+.c-importe { grid-column: span 3; }
+.c-pie { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+.c-pie .chips { flex: 1 1 320px; margin: 0; }
+.c-pie .grupo { display: contents; }
+.c-pie .chips.sin-chips::before { content: 'Añade códigos CPV o provincias para acotar la búsqueda.'; color: var(--muted); font-size: 14px; }
+.c-dias .check { margin: 4px 0 0; }
+.c-dias .check:first-child { margin-top: 0; }
 .campo > label, .campo > .etq { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
-.ayuda { color: var(--muted); font-size: 13px; margin: 4px 0 0; line-height: 1.4; }
 input[type=text], input[type=search], input[type=number], select {
   width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
 }
@@ -66,8 +76,7 @@ input:focus, select:focus { border-color: var(--accent); }
 .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; margin-top: 8px; cursor: pointer; }
 .check input { margin-top: 3px; accent-color: var(--accent); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.chips:empty { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer;
   background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 3px 6px 3px 11px; font-size: 13px; font-weight: 600;
@@ -115,14 +124,19 @@ input:focus, select:focus { border-color: var(--accent); }
 .vacio p { margin: 0 0 6px; }
 .vacio p:first-child { font-weight: 600; font-size: 17px; }
 
-.pie { max-width: 1280px; margin: 0 auto; padding: 8px 24px 40px; color: var(--muted); font-size: 13px; }
+.pie { max-width: 1440px; margin: 0 auto; padding: 8px 24px 40px; color: var(--muted); font-size: 13px; }
 .pie p { margin: 0 0 6px; max-width: 80ch; }
 
+@media (max-width: 1100px) and (min-width: 901px) {
+  .c-cpv, .c-prov, .c-tipo, .c-importe, .c-dias { grid-column: span 6; }
+  .c-texto { grid-column: span 12; }
+}
 @media (max-width: 900px) {
-  .marco { grid-template-columns: 1fr; padding: 16px; gap: 16px; }
+  .marco { padding: 16px; }
   .cabecera { padding: 16px; }
-  .filtros { position: static; max-height: none; display: none; }
-  .filtros.abierto { display: block; }
+  .filtros { display: none; grid-template-columns: minmax(0, 1fr); }
+  .filtros.abierto { display: grid; }
+  .filtros > * { grid-column: 1 / -1; }
   .boton-filtros { display: inline-block; }
   .acciones { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
   .acciones select { width: 100%; }
@@ -152,35 +166,30 @@ input:focus, select:focus { border-color: var(--accent); }
 </header>
 
 <div class="marco">
-  <aside class="filtros" id="filtros" aria-label="Filtros">
-    <h2>Filtrar</h2>
-
-    <div class="campo">
+  <section class="filtros" id="filtros" aria-label="Filtros">
+    <div class="campo c-cpv">
       <label for="cpvEntrada">Código CPV</label>
-      <input type="text" id="cpvEntrada" list="cpvLista" placeholder="Ej.: 553 o hostelería" autocomplete="off">
+      <input type="text" id="cpvEntrada" list="cpvLista" placeholder="Ej.: 553 o hostelería, e Intro" autocomplete="off"
+        title="Escribe un código o un sector y pulsa Intro. «55» incluye todos los códigos que empiezan por 55.">
       <datalist id="cpvLista"></datalist>
-      <p class="ayuda">Escribe un código o elige un sector y pulsa Intro. «55» incluye todos los códigos que empiezan por 55.</p>
-      <div class="chips" id="cpvChips"></div>
     </div>
 
-    <div class="campo">
+    <div class="campo c-prov">
       <label for="provSelect">Provincia</label>
       <select id="provSelect"><option value="">Añadir provincia o comunidad…</option></select>
-      <div class="chips" id="provChips"></div>
-      <label class="check"><input type="checkbox" id="incluirEstatal" checked> Incluir las de ámbito estatal o de varias provincias</label>
     </div>
 
-    <div class="campo">
+    <div class="campo c-texto">
       <label for="texto">Buscar en título u organismo</label>
       <input type="search" id="texto" placeholder="Ej.: comedor, Ayuntamiento de Pamplona">
     </div>
 
-    <div class="campo">
+    <div class="campo c-tipo">
       <label for="tipo">Tipo de contrato</label>
       <select id="tipo"><option value="">Todos</option></select>
     </div>
 
-    <div class="campo">
+    <div class="campo c-importe">
       <span class="etq">Presupuesto sin IVA (€)</span>
       <div class="fila2">
         <input type="number" id="minimo" placeholder="Mínimo" min="0" step="1000" aria-label="Presupuesto mínimo">
@@ -188,7 +197,7 @@ input:focus, select:focus { border-color: var(--accent); }
       </div>
     </div>
 
-    <div class="campo">
+    <div class="campo c-dias">
       <label for="dias">Cierran en</label>
       <select id="dias">
         <option value="">Cualquier plazo</option>
@@ -196,11 +205,18 @@ input:focus, select:focus { border-color: var(--accent); }
         <option value="15">Los próximos 15 días</option>
         <option value="30">Los próximos 30 días</option>
       </select>
+    </div>
+
+    <div class="campo c-dias">
+      <label class="check"><input type="checkbox" id="incluirEstatal" checked> Incluir las de ámbito estatal o de varias provincias</label>
       <label class="check"><input type="checkbox" id="ocultarSinFecha"> Ocultar las que no indican fecha de cierre</label>
     </div>
 
-    <button type="button" class="limpiar" id="limpiar">Quitar todos los filtros</button>
-  </aside>
+    <div class="c-pie">
+      <div class="chips" id="chipsActivos"><span id="cpvChips" class="grupo"></span><span id="provChips" class="grupo"></span></div>
+      <button type="button" class="limpiar" id="limpiar">Quitar todos los filtros</button>
+    </div>
+  </section>
 
   <main>
     <div class="barra">
@@ -327,6 +343,7 @@ input:focus, select:focus { border-color: var(--accent); }
       `<button type="button" class="chip" data-cpv="${c}" aria-label="Quitar CPV ${c}">${c}${nombreCPV.has(c) ? ' ' + esc(nombreCPV.get(c)) : ''}<span aria-hidden="true">×</span></button>`).join('');
     $('provChips').innerHTML = f.prov.map((p) =>
       `<button type="button" class="chip" data-prov="${p}" aria-label="Quitar ${esc(datos.meta.provincias?.[p] || p)}">${esc(datos.meta.provincias?.[p] || p)}<span aria-hidden="true">×</span></button>`).join('');
+    $('chipsActivos').classList.toggle('sin-chips', !f.cpv.length && !f.prov.length);
     $('texto').value = f.q; $('tipo').value = f.tipo; $('minimo').value = f.min; $('maximo').value = f.max;
     $('dias').value = f.dias; $('ocultarSinFecha').checked = f.sinFecha; $('incluirEstatal').checked = f.estatal; $('orden').value = f.orden;
   }
