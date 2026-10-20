@@ -1,11 +1,10 @@
 name: Actualizar y publicar
 
 on:
-  # Dos veces al día (hora UTC: 05:17 y 13:17 → 07:17 y 15:17 en Madrid en verano).
-  # Las alertas por email se envían solo en la de la mañana.
+  # Cada 3 horas (GitHub a veces se salta alguna ejecución programada; así no importa).
+  # Las alertas se envían una vez al día, en la primera ejecución a partir de las 7:00 (hora de Madrid).
   schedule:
-    - cron: '17 5 * * *'
-    - cron: '17 13 * * *'
+    - cron: '17 */3 * * *'
   # Botón "Run workflow" en la pestaña Actions
   workflow_dispatch:
     inputs:
@@ -70,11 +69,20 @@ jobs:
           git add -A public/data
           if git diff --staged --quiet; then
             echo "Sin cambios"
-          else
-            git commit -m "Datos actualizados $(date -u +'%Y-%m-%d %H:%M') UTC"
-            git pull --rebase
-            git push
+            exit 0
           fi
+          git commit -q -m "Datos actualizados $(date -u +'%Y-%m-%d %H:%M') UTC"
+          # GitHub a veces falla al recibir muchos datos: se reintenta hasta 5 veces.
+          for intento in 1 2 3 4 5; do
+            if git pull --rebase -q && git push; then
+              echo "Datos guardados"
+              exit 0
+            fi
+            echo "Fallo al guardar (intento $intento/5), reintentando en $((intento * 30)) s"
+            sleep $((intento * 30))
+          done
+          echo "No se pudieron guardar los datos en el repositorio"
+          exit 1
 
       - uses: actions/configure-pages@v5
 
@@ -87,7 +95,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Enviar alertas por email
-        if: github.event.schedule == '17 5 * * *' || github.event.inputs.enviar_alertas == 'true'
+        if: github.event_name == 'schedule' || github.event.inputs.enviar_alertas == 'true'
         continue-on-error: true
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
@@ -95,4 +103,5 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
           SITIO: https://licitaempresa.es
+          FORZAR: ${{ github.event.inputs.enviar_alertas == 'true' && '1' || '' }}
         run: node scripts/enviar-alertas.mjs

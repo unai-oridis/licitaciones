@@ -55,6 +55,15 @@ async function main() {
     return;
   }
 
+  // Una vez al día: en la primera ejecución a partir de las 7:00 de Madrid (salvo envío forzado a mano).
+  const hoyMadrid = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date());
+  const horaMadrid = Number(new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false }).format(new Date()));
+  if (!process.env.ALERTAS_JSON && process.env.FORZAR !== '1') {
+    if (horaMadrid < 7) { log(`Son las ${horaMadrid} h en Madrid: las alertas se envían a partir de las 7.`); return; }
+    const ultimo = (await d1("SELECT valor FROM control WHERE clave = 'ultimo_envio_diario'"))[0]?.valor;
+    if (ultimo === hoyMadrid) { log('Las alertas de hoy ya se enviaron.'); return; }
+  }
+
   const indice = JSON.parse(await fs.readFile(path.join(DIR_DATOS, 'indice.json'), 'utf8'));
   const abiertas = JSON.parse(await fs.readFile(path.join(DIR_DATOS, indice.archivos.abiertas.f), 'utf8')).items
     .filter((x) => x.g === 'A' && (!x.f || x.f >= AHORA)); // nunca avisar de algo ya cerrado
@@ -94,6 +103,9 @@ async function main() {
     });
     if (r.ok) { enviados++; await marcarEnviado(email); }
     else { fallos++; log(`  fallo enviando a una dirección: ${r.error}`); }
+  }
+  if (!process.env.ALERTAS_JSON && (enviados || !fallos)) {
+    await d1("INSERT INTO control (clave, valor) VALUES ('ultimo_envio_diario', ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor", [hoyMadrid]);
   }
   log(`Listo: ${enviados} emails enviados, ${sinNovedades} sin novedades, ${aplazados} aplazados por límite diario, ${fallos} fallos.`);
   if (fallos && !enviados) process.exitCode = 1;

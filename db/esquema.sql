@@ -11,3 +11,9 @@ CREATE TABLE IF NOT EXISTS alertas (
 );
 CREATE INDEX IF NOT EXISTS idx_alertas_email ON alertas(email);
 CREATE INDEX IF NOT EXISTS idx_alertas_confirmada ON alertas(confirmada);
+
+-- Control del envío diario (para no enviar dos veces el mismo día)
+CREATE TABLE IF NOT EXISTS control (
+  clave TEXT PRIMARY KEY,
+  valor TEXT
+);

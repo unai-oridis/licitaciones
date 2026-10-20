@@ -36,6 +36,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
@@ -641,7 +642,10 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     $('lista').innerHTML = '';
     mostrados = 0;
     pintarMas(tAhora);
-    $('vacio').innerHTML = n ? '' : `<div class="vacio"><p>Ninguna licitación cumple estos filtros.</p><p>Prueba con un código CPV más corto (por ejemplo «55» en vez de «55321»), añade provincias u otros estados.</p></div>`;
+    const sinHistorico = !soloAbiertas() && !(meta.archivos.historico || []).length;
+    $('vacio').innerHTML = n ? '' : sinHistorico
+      ? `<div class="vacio"><p>El histórico todavía se está preparando.</p><p>Las licitaciones adjudicadas, formalizadas y del resto de estados estarán disponibles en unas horas. Mientras tanto puedes consultar las que están en plazo.</p></div>`
+      : `<div class="vacio"><p>Ninguna licitación cumple estos filtros.</p><p>Prueba con un código CPV más corto (por ejemplo «55» en vez de «55321»), añade provincias u otros estados.</p></div>`;
   }
 
   function pintarMas(tAhora) {
