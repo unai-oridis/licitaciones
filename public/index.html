@@ -184,7 +184,7 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
   .filtros.abierto { display: grid; }
   .filtros > * { grid-column: 1 / -1; }
   .boton-filtros { display: inline-block; }
-  .acciones { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .acciones { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
   .acciones select { width: 100%; }
   .boton { white-space: nowrap; }
   .lic { grid-template-columns: minmax(0, 1fr); padding: 14px 16px; gap: 8px; }
@@ -305,7 +305,6 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
           <option value="recientes">Actualizadas recientemente</option>
           <option value="importe">Mayor presupuesto</option>
         </select>
-        <button type="button" class="boton" id="csv">Descargar CSV</button>
         <button type="button" class="boton boton-principal" id="crearAlerta" hidden>Crear alerta</button>
       </div>
     </div>
@@ -572,7 +571,6 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     $('incluirEstatal').addEventListener('change', (e) => { f.estatal = e.target.checked; escribirURL(); filtrar(); });
     $('limpiar').addEventListener('click', () => { Object.assign(f, structuredClone(POR_DEFECTO)); cambiar(); });
     $('mas').addEventListener('click', () => pintarMas());
-    $('csv').addEventListener('click', descargarCSV);
     $('verFiltros').addEventListener('click', () => {
       const abierto = $('filtros').classList.toggle('abierto');
       $('verFiltros').setAttribute('aria-expanded', abierto);
@@ -637,7 +635,6 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     $('recuento').innerHTML = `<strong>${fmtNum.format(n)}</strong> ${n === 1 ? 'licitación' : 'licitaciones'}${sufijo}`;
     const activos = f.cpv.length + f.prov.length + ['q','tipo','min','max','dias'].filter((k) => f[k]).length + (f.sinFecha ? 1 : 0) + (soloAbiertas() ? 0 : 1);
     $('verFiltros').textContent = activos ? `Filtros (${activos})` : 'Filtros';
-    $('csv').disabled = n === 0;
 
     $('lista').innerHTML = '';
     mostrados = 0;
@@ -706,26 +703,6 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
       </div>
       <div class="importe">${x.i ? `<b>${fmtEuro.format(x.i)}</b><span>presupuesto sin IVA</span>` : '<span>Importe no indicado</span>'}</div>
     </li>`;
-  }
-
-  // ---------- CSV ----------
-  function descargarCSV() {
-    const cab = ['Estado', 'Título', 'Organismo', 'Expediente', 'Provincia', 'Tipo', 'Procedimiento', 'CPV', 'Presupuesto sin IVA',
-      'Fecha límite', 'Fecha adjudicación', 'Adjudicatario', 'Importe adjudicado sin IVA', 'Ofertas recibidas', 'Última actualización', 'Enlace'];
-    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const euros = (v) => (v != null ? String(v).replace('.', ',') : '');
-    const filas = resultado.map((x) => [
-      NOMBRE_GRUPO[x._g], x.t, x.o, x.e, meta.provincias?.[x.p], meta.tipos?.[x.tc], meta.procedimientos?.[x.pr], x.c.join(' '),
-      euros(x.i), x.f ? x.f.replace('T', ' ') : '', x.fa || '',
-      (x.ad || []).map((a) => a[0]).join(' | '), (x.ad || []).map((a) => euros(a[1])).join(' | '),
-      (x.ad || []).map((a) => a[2] ?? '').join(' | '), x.a, x.u,
-    ].map(q).join(';'));
-    const blob = new Blob(['﻿' + [cab.map(q).join(';'), ...filas].join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `licitaciones-${ahoraMadrid().slice(0, 10)}.csv`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
   // ---------- alertas ----------
