@@ -732,7 +732,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
       <div class="plazo">${html}</div>
       <div>
         <h3 class="titulo">${(() => { const r = rutaFicha(x);
-          return r ? `<a href="${r}">${esc(x.t || 'Sin título')}</a>` : `<a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a>`; })()}</h3>
+          return r ? `<a href="${r}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a>` : `<a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a>`; })()}</h3>
         <p class="organo">${esc(x.o)}</p>
         <p class="datos">${datosFila}</p>
         ${lineaAdjudicacion(x)}
