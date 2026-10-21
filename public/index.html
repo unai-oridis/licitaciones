@@ -371,6 +371,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
   <p>Esta web no es oficial. Antes de presentar una oferta, comprueba plazos y pliegos en el anuncio original, que es el que tiene validez. No incluye contratos menores.</p>
   <nav class="explorar" aria-label="Licitaciones por provincia y sector">
     <a href="/licitaciones/"><b>Licitaciones por provincia y sector</b></a>
+    <a href="/empresas/"><b>Empresas que más ganan</b></a>
     <a href="/licitaciones/madrid/">Madrid</a><a href="/licitaciones/barcelona/">Barcelona</a><a href="/licitaciones/valencia/">Valencia</a>
     <a href="/licitaciones/sevilla/">Sevilla</a><a href="/licitaciones/bizkaia/">Bizkaia</a><a href="/licitaciones/gipuzkoa/">Gipuzkoa</a>
     <a href="/licitaciones/navarra/">Navarra</a><a href="/licitaciones/sector/obras-de-construccion/">Obras</a>
@@ -427,6 +428,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
 
   let meta = {};
   let alertasActivas = false;
+  let libEmpresas = null; // /js/empresas.mjs (lo copia scripts/generar-paginas.mjs al publicar)
   let fichas = null; // qué licitaciones tienen página propia (lo genera scripts/generar-paginas.mjs)
   const cargados = new Map(); // archivo -> items
   let todos = [];
@@ -721,10 +723,11 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
 
   function lineaAdjudicacion(x) {
     if (!x.ad?.length) return '';
+    const conPagina = (n) => libEmpresas?.tienePagina(n);
     const partes = x.ad.slice(0, 2).map(([empresa, importe, ofertas]) =>
-      `<b>${esc(empresa)}</b>${importe ? ` por ${fmtEuro.format(importe)}` : ''}${ofertas ? `, ${ofertas} ${ofertas === 1 ? 'oferta' : 'ofertas'}` : ''}`);
+      `<b>${conPagina(empresa) ? `<a href="${libEmpresas.rutaEmpresa(empresa)}" target="_blank" rel="noopener">${esc(empresa)}</a>` : esc(empresa)}</b>${importe ? ` por ${fmtEuro.format(importe)}` : ''}${ofertas ? `, ${ofertas} ${ofertas === 1 ? 'oferta' : 'ofertas'}` : ''}`);
     const resto = (x.nad || x.ad.length) - partes.length;
-    const seguir = alertasActivas ? `<button type="button" class="seguir" data-emp="${esc(x.ad[0][0])}">Seguir a esta empresa</button>` : '';
+    const seguir = alertasActivas && conPagina(x.ad[0][0]) ? `<button type="button" class="seguir" data-emp="${esc(x.ad[0][0])}">Seguir a esta empresa</button>` : '';
     return `<p class="adj">Adjudicada a ${partes.join('; ')}${resto > 0 ? ` <span class="mas-lotes">y ${resto} más</span>` : ''}${seguir}</p>`;
   }
 
@@ -868,6 +871,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
   }
 
   async function iniciar() {
+    const pideLib = import('/js/empresas.mjs').then((m) => { libEmpresas = m; }).catch(() => {});
     const pideFichas = fetch('/licitacion/fichas.json', { cache: 'no-cache' })
       .then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.adjDesde) fichas = d; }).catch(() => {});
     try {
@@ -897,7 +901,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
       $('vacio').innerHTML = '<div class="vacio"><p>No hay datos disponibles ahora mismo.</p><p>La primera carga de datos tarda alrededor de una hora y media.</p></div>';
       return;
     }
-    await pideFichas;
+    await Promise.all([pideFichas, pideLib]);
     $('estadoDatos').innerHTML = `<strong>${fmtNum.format(meta.total ?? 0)}</strong> licitaciones en plazo, actualizadas ${haceCuanto(meta.actualizado)}`;
     prepararControles();
     leerURL();

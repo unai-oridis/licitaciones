@@ -4,3 +4,6 @@ public/licitaciones/
 public/licitacion/
 public/sitemap.xml
 .DS_Store
+public/empresas/
+public/js/
+public/sitemap-*.xml

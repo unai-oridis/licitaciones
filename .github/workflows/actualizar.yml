@@ -81,6 +81,14 @@ jobs:
           echo "No se pudieron guardar los datos en el repositorio"
           exit 1
 
+      - name: Subir datos de empresas (páginas /empresa/)
+        continue-on-error: true
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_D1_ID: ${{ secrets.CF_D1_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: node scripts/subir-empresas.mjs
+
       - name: Enviar alertas por email
         if: github.event_name == 'schedule' || github.event.inputs.automatico == 'true' || github.event.inputs.enviar_alertas == 'true'
         continue-on-error: true
