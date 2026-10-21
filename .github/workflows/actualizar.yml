@@ -1,4 +1,6 @@
 name: Actualizar y publicar
+# Descarga las licitaciones y las guarda en el repositorio. Cloudflare Pages publica la web
+# automáticamente con cada cambio (y genera las páginas por provincia y sector).
 
 on:
   # Cada 3 horas (GitHub a veces se salta alguna ejecución programada; así no importa).
@@ -19,14 +21,9 @@ on:
         description: 'Enviar también las alertas por email al terminar'
         type: boolean
         default: false
-  # Al subir cambios de la web (sin descargar datos)
-  push:
-    branches: [main]
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: actualizar
@@ -36,9 +33,6 @@ jobs:
   actualizar:
     runs-on: ubuntu-latest
     timeout-minutes: 340
-    environment:
-      name: github-pages
-      url: ${{ steps.publicar.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,14 +49,12 @@ jobs:
         run: rm -f public/data/*.json
 
       - name: Descargar licitaciones
-        if: github.event_name != 'push'
         env:
           MESES_INICIALES: ${{ github.event.inputs.meses_iniciales || '6' }}
           NODE_OPTIONS: --max-old-space-size=6144
         run: node scripts/actualizar.mjs
 
       - name: Guardar datos en el repositorio
-        if: github.event_name != 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -83,16 +75,6 @@ jobs:
           done
           echo "No se pudieron guardar los datos en el repositorio"
           exit 1
-
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-
-      - name: Publicar web
-        id: publicar
-        uses: actions/deploy-pages@v4
 
       - name: Enviar alertas por email
         if: github.event_name == 'schedule' || github.event.inputs.enviar_alertas == 'true'

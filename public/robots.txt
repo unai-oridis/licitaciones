@@ -2,3 +2,5 @@ User-agent: *
 Disallow: /admin.html
 Disallow: /api/
 Disallow: /alerta.html
+
+Sitemap: https://licitaempresa.es/sitemap.xml
