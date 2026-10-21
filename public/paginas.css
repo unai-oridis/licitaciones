@@ -99,6 +99,7 @@ h2 { font-size: 21px; margin: 32px 0 12px; }
 .ganadores b { color: var(--ok); }
 .ganadores span { color: var(--muted); font-size: 14px; }
 .nota { color: var(--muted); font-size: 14px; }
+.aviso-empresa { margin: 14px 0 0; }
 .ficha-datos { display: grid; grid-template-columns: 200px minmax(0, 1fr); margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .ficha-datos dt, .ficha-datos dd { margin: 0; padding: 11px 20px; border-top: 1px solid var(--line); }
 .ficha-datos dt:first-of-type, .ficha-datos dt:first-of-type + dd { border-top: 0; }

@@ -223,6 +223,14 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
 .dlg-mensaje.error { color: var(--urgent); }
 .dlg-mensaje.ok { color: var(--ink); font-size: 15px; }
 .dlg-botones { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.dlg-tipo { display: grid; gap: 8px; margin: 4px 0 16px; }
+.tipo-op { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-size: 14px; line-height: 1.4; }
+.tipo-op:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.tipo-op input { margin-top: 3px; accent-color: var(--accent); }
+.tipo-op b { display: block; font-size: 15px; }
+#bloqueEmpresa { margin-bottom: 16px; }
+#bloqueEmpresa .dlg-ayuda { margin: 8px 0 0; font-size: 13px; }
+.seguir { margin-left: 6px; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
@@ -327,15 +335,28 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
 
 <dialog id="dlgAlerta" aria-labelledby="dlgTitulo">
   <form id="formAlerta" method="dialog" novalidate>
-    <h2 id="dlgTitulo">Recibe estas licitaciones cada mañana</h2>
-    <p class="dlg-ayuda">Te enviaremos un email al día con las licitaciones <strong>nuevas en plazo</strong> que coincidan con tus filtros actuales. Solo si hay novedades.</p>
-    <p class="dlg-filtros" id="dlgFiltros"></p>
+    <h2 id="dlgTitulo">Recibe avisos por email cada mañana</h2>
+    <div class="dlg-tipo" role="radiogroup" aria-label="Tipo de alerta">
+      <label class="tipo-op"><input type="radio" name="tipoAlerta" value="filtros" checked>
+        <span><b>Licitaciones nuevas</b>Las que se publiquen y coincidan con tus filtros actuales.</span></label>
+      <label class="tipo-op"><input type="radio" name="tipoAlerta" value="empresa">
+        <span><b>Adjudicaciones de una empresa</b>Entérate cuando un competidor o un cliente gane un concurso.</span></label>
+    </div>
+    <div id="bloqueFiltros">
+      <p class="dlg-ayuda">Te enviaremos un email al día con las licitaciones <strong>nuevas en plazo</strong> que coincidan con tus filtros. Solo si hay novedades.</p>
+      <p class="dlg-filtros" id="dlgFiltros"></p>
+    </div>
+    <div id="bloqueEmpresa" hidden>
+      <label for="alertaEmpresa" class="etq">Nombre de la empresa</label>
+      <input type="text" id="alertaEmpresa" maxlength="100" autocomplete="organization" placeholder="Ej.: Construcciones Pérez">
+      <p class="dlg-ayuda">Escríbelo como aparece en las adjudicaciones; no hace falta poner S.L. o S.A. Te avisaremos cada mañana de sus nuevas adjudicaciones, solo si las hay.</p>
+    </div>
     <div id="dlgCampos">
       <label for="alertaEmail" class="etq">Tu email</label>
       <input type="email" id="alertaEmail" autocomplete="email" required placeholder="nombre@empresa.es">
       <input type="text" name="web" id="alertaWeb" tabindex="-1" autocomplete="off" class="oculto" aria-hidden="true">
       <label class="check consentimiento"><input type="checkbox" id="alertaAcepto">
-        <span>He leído la <a href="privacidad.html" target="_blank">política de privacidad</a> y acepto recibir un email diario con las licitaciones nuevas que coincidan con esta alerta. Puedo darme de baja en cualquier momento.</span></label>
+        <span>He leído la <a href="privacidad.html" target="_blank">política de privacidad</a> y acepto recibir un email diario con las novedades (licitaciones nuevas o adjudicaciones) que coincidan con esta alerta. Puedo darme de baja en cualquier momento.</span></label>
     </div>
     <p class="dlg-mensaje" id="dlgMensaje" role="status" aria-live="polite"></p>
     <div class="dlg-botones">
@@ -404,6 +425,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
   const quitarTildes = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
   let meta = {};
+  let alertasActivas = false;
   let fichas = null; // qué licitaciones tienen página propia (lo genera scripts/generar-paginas.mjs)
   const cargados = new Map(); // archivo -> items
   let todos = [];
@@ -580,6 +602,8 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
       const chip = e.target.closest('.chip');
       if (chip?.dataset.cpv) { f.cpv = f.cpv.filter((c) => c !== chip.dataset.cpv); cambiar(); }
       if (chip?.dataset.prov) { f.prov = f.prov.filter((p) => p !== chip.dataset.prov); cambiar(); }
+      const seguir = e.target.closest('.seguir');
+      if (seguir) { abrirAlerta('empresa', seguir.dataset.emp); return; }
       const cpv = e.target.closest('.cpv');
       if (cpv) { const c = normalizarCPV(cpv.dataset.c); if (!f.cpv.includes(c)) { f.cpv.push(c); cambiar(); } }
     });
@@ -699,7 +723,8 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     const partes = x.ad.slice(0, 2).map(([empresa, importe, ofertas]) =>
       `<b>${esc(empresa)}</b>${importe ? ` por ${fmtEuro.format(importe)}` : ''}${ofertas ? `, ${ofertas} ${ofertas === 1 ? 'oferta' : 'ofertas'}` : ''}`);
     const resto = (x.nad || x.ad.length) - partes.length;
-    return `<p class="adj">Adjudicada a ${partes.join('; ')}${resto > 0 ? ` <span class="mas-lotes">y ${resto} más</span>` : ''}</p>`;
+    const seguir = alertasActivas ? `<button type="button" class="seguir" data-emp="${esc(x.ad[0][0])}">Seguir a esta empresa</button>` : '';
+    return `<p class="adj">Adjudicada a ${partes.join('; ')}${resto > 0 ? ` <span class="mas-lotes">y ${resto} más</span>` : ''}${seguir}</p>`;
   }
 
   // Misma regla que en scripts/generar-paginas.mjs: si se cambia aquí, cambiarla también allí.
@@ -755,18 +780,30 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     if (a.max) partes.push('hasta ' + fmtEuro.format(+a.max));
     return partes.join('. ');
   }
-  function abrirAlerta() {
+  const tipoAlerta = () => document.querySelector('input[name="tipoAlerta"]:checked')?.value || 'filtros';
+  function modoAlerta() {
+    const empresa = tipoAlerta() === 'empresa';
     const a = filtrosAlerta();
-    const valida = a.cpv.length || a.prov.length || a.q;
+    const valida = empresa || a.cpv.length || a.prov.length || a.q;
+    $('bloqueFiltros').hidden = empresa;
+    $('bloqueEmpresa').hidden = !empresa;
     $('dlgFiltros').textContent = valida ? describirAlerta(a)
       : 'Primero elige al menos un código CPV, una provincia o un texto de búsqueda: así la alerta solo te enviará lo que te interesa.';
     $('dlgFiltros').classList.toggle('aviso', !valida);
     $('dlgCampos').hidden = !valida;
     $('dlgEnviar').hidden = !valida;
-    $('dlgMensaje').textContent = ''; $('dlgMensaje').className = 'dlg-mensaje';
     $('dlgCerrar').textContent = valida ? 'Cancelar' : 'Entendido';
+    $('dlgMensaje').textContent = ''; $('dlgMensaje').className = 'dlg-mensaje';
+    return valida;
+  }
+  function abrirAlerta(modo = 'filtros', emp = '') {
+    document.querySelector(`input[name="tipoAlerta"][value="${modo}"]`).checked = true;
+    // Si está buscando adjudicaciones por nombre de empresa, se propone ese nombre
+    $('alertaEmpresa').value = emp || (f.est.some((g) => g === 'J' || g === 'F') ? f.q : '');
+    const valida = modoAlerta();
     $('dlgAlerta').showModal();
-    if (valida) $('alertaEmail').focus();
+    if (modo === 'empresa' && !$('alertaEmpresa').value) $('alertaEmpresa').focus();
+    else if (valida) $('alertaEmail').focus();
   }
   async function enviarAlerta(e) {
     e.preventDefault();
@@ -774,12 +811,15 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     const email = $('alertaEmail').value.trim();
     msg.className = 'dlg-mensaje error';
     if (!$('alertaEmail').checkValidity() || !email) { msg.textContent = 'Escribe un email válido.'; $('alertaEmail').focus(); return; }
+    const empresa = tipoAlerta() === 'empresa';
+    const emp = $('alertaEmpresa').value.replace(/\s+/g, ' ').trim();
+    if (empresa && emp.length < 3) { msg.textContent = 'Escribe el nombre de la empresa (al menos 3 letras).'; $('alertaEmpresa').focus(); return; }
     if (!$('alertaAcepto').checked) { msg.textContent = 'Para crear la alerta tienes que aceptar la política de privacidad.'; return; }
     $('dlgEnviar').disabled = true; msg.className = 'dlg-mensaje'; msg.textContent = 'Creando la alerta…';
     try {
       const r = await fetch('/api/alertas', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, acepto: true, filtros: filtrosAlerta(), web: $('alertaWeb').value }),
+        body: JSON.stringify({ email, acepto: true, filtros: empresa ? { emp } : filtrosAlerta(), web: $('alertaWeb').value }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || 'No se ha podido crear la alerta. Inténtalo más tarde.');
@@ -797,17 +837,22 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     // El botón solo aparece si las alertas están configuradas en el servidor.
     fetch('/api/alertas', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : {})).then((d) => {
       if (!d.activas) return;
+      alertasActivas = true;
       $('crearAlerta').hidden = false;
-      // Desde las páginas por provincia o sector: «Recibir avisos por email» abre el formulario directamente
+      filtrar(); // para mostrar «Seguir a esta empresa» en las adjudicaciones
+      // Desde las páginas por provincia, sector o ficha: los botones de aviso abren el formulario directamente
       const h = new URLSearchParams(location.hash.slice(1));
-      if (h.get('alerta') === '1') {
-        h.delete('alerta');
+      const modo = h.get('alerta');
+      if (modo === '1' || modo === 'empresa') {
+        const emp = h.get('emp') || '';
+        h.delete('alerta'); h.delete('emp');
         const resto = h.toString().replace(/%2C/g, ',');
         history.replaceState(null, '', resto ? '#' + resto : location.pathname);
-        abrirAlerta();
+        abrirAlerta(modo === 'empresa' ? 'empresa' : 'filtros', emp);
       }
     }).catch(() => {});
-    $('crearAlerta').addEventListener('click', abrirAlerta);
+    $('crearAlerta').addEventListener('click', () => abrirAlerta());
+    for (const r of document.querySelectorAll('input[name="tipoAlerta"]')) r.addEventListener('change', modoAlerta);
     $('dlgCerrar').addEventListener('click', () => $('dlgAlerta').close());
     $('formAlerta').addEventListener('submit', enviarAlerta);
   }

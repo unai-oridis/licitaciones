@@ -468,6 +468,11 @@ async function main() {
         // para que una recarga completa no haga que todo parezca nuevo.
         const vt = antes?.vt || (previo ? AHORA.toISOString().slice(0, 16) : `${leida.item.a}T00:00`);
         const item = { id, ...leida.item, fp: antes?.fp || leida.item.a, vt };
+        // vadj: cuándo vimos por primera vez que estaba adjudicada (para las alertas de empresas).
+        if (item.ad?.length) {
+          item.vadj = antes?.vadj
+            || (antes?.ad?.length || !previo ? `${String(item.fa || item.a || AHORA.toISOString()).slice(0, 10)}T00:00` : AHORA.toISOString().slice(0, 16));
+        }
         item.g = grupoDe(item);
         if (conservar(item)) { porId.set(id, item); if (!antes) altas++; }
         else if (porId.delete(id)) bajas++;
@@ -490,6 +495,7 @@ async function main() {
   for (const [id, item] of porId) {
     if (!item.s) item.s = 'PUB';
     if (!item.vt) item.vt = `${item.fp || item.a}T00:00`;
+    if (item.ad?.length && !item.vadj) item.vadj = `${String(item.fa || item.a || AHORA.toISOString()).slice(0, 10)}T00:00`;
     item.g = grupoDe(item);
     if (!conservar(item)) { porId.delete(id); retiradas++; }
   }

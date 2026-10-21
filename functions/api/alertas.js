@@ -19,7 +19,7 @@ export async function onRequestPost({ request, env }) {
   if (body.acepto !== true) return json({ error: 'Para crear la alerta tienes que aceptar la política de privacidad.' }, 400);
 
   const filtros = normalizarFiltros(body.filtros);
-  if (!tieneAlgunFiltro(filtros)) return json({ error: 'Añade al menos un código CPV, una provincia o un texto de búsqueda.' }, 400);
+  if (!tieneAlgunFiltro(filtros)) return json({ error: 'Añade al menos un código CPV, una provincia, un texto de búsqueda o el nombre de una empresa.' }, 400);
   if (!env.DB) return json({ error: 'Las alertas no están disponibles ahora mismo. Inténtalo más tarde.' }, 503);
 
   const hace24h = new Date(Date.now() - 864e5).toISOString().slice(0, 16);

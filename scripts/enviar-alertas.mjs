@@ -10,7 +10,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { coincide, emailDiario, enviarEmail, normalizarFiltros } from '../lib/alertas.mjs';
+import { coincide, emailDiario, enviarEmail, normalizarFiltros, esAlertaEmpresa } from '../lib/alertas.mjs';
 
 const DIR_DATOS = process.env.DIR_DATOS || 'public/data';
 const SITIO = process.env.SITIO || 'https://licitaempresa.es';
@@ -69,6 +69,20 @@ async function main() {
   const abiertas = JSON.parse(await fs.readFile(path.join(DIR_DATOS, indice.archivos.abiertas.f), 'utf8')).items
     .filter((x) => x.g === 'A' && (!x.f || x.f >= AHORA)); // nunca avisar de algo ya cerrado
   log(`${abiertas.length} licitaciones en plazo cargadas`);
+  // Adjudicaciones (para las alertas de empresas), solo si alguien tiene una alerta de ese tipo
+  let adjudicadas = null;
+  async function cargarAdjudicadas() {
+    if (adjudicadas) return adjudicadas;
+    adjudicadas = [];
+    for (const h of indice.archivos.historico || []) {
+      if (!h.grupos?.J && !h.grupos?.F) continue;
+      for (const x of JSON.parse(await fs.readFile(path.join(DIR_DATOS, h.f), 'utf8')).items) {
+        if ((x.g === 'J' || x.g === 'F') && x.ad?.length && x.vadj) adjudicadas.push(x);
+      }
+    }
+    log(`${adjudicadas.length} adjudicaciones cargadas`);
+    return adjudicadas;
+  }
 
   // Borrar las alertas que nadie confirmó en 7 días (no se guardan emails sin consentimiento confirmado).
   if (!process.env.ALERTAS_JSON) {
@@ -90,9 +104,12 @@ async function main() {
     for (const a of suyas) {
       const filtros = normalizarFiltros(typeof a.filtros === 'string' ? JSON.parse(a.filtros) : a.filtros);
       const desde = a.ultimo_envio || a.confirmada_en || AHORA;
-      const items = abiertas
-        .filter((x) => (x.vt || '') > desde && coincide(x, filtros))
-        .sort((x, y) => (x.f || '9999') < (y.f || '9999') ? -1 : 1); // las que cierran antes, primero
+      const items = esAlertaEmpresa(filtros)
+        ? (await cargarAdjudicadas()).filter((x) => x.vadj > desde && coincide(x, filtros))
+          .sort((x, y) => ((x.fa || '') < (y.fa || '') ? 1 : -1)) // las más recientes, primero
+        : abiertas
+          .filter((x) => (x.vt || '') > desde && coincide(x, filtros))
+          .sort((x, y) => (x.f || '9999') < (y.f || '9999') ? -1 : 1); // las que cierran antes, primero
       if (items.length) secciones.push({ alerta: { id: a.id, filtros }, items });
     }
     if (!secciones.length) { sinNovedades++; await marcarEnviado(email); continue; }

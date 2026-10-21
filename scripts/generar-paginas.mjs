@@ -12,6 +12,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { CPV_SECTORES } from '../lib/cpv.mjs';
+import { slug, rutaFicha } from '../lib/fichas.mjs';
 
 const RAIZ = process.env.DIR_PUBLICO || 'public';
 const DIR_DATOS = path.join(RAIZ, 'data');
@@ -26,8 +27,6 @@ const MAX_RELACIONADAS = 6;   // otras licitaciones que se enlazan desde cada fi
 const AHORA = new Date();
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const slug = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const euros = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' });
 const numero = new Intl.NumberFormat('es-ES', { useGrouping: 'always' });
 const fechaLarga = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
@@ -74,15 +73,6 @@ async function cargar() {
 }
 
 // ---------- fichas de licitación ----------
-
-// Misma regla que en public/index.html (función rutaFicha): si se cambia aquí, cambiarla también allí.
-function slugCorto(t) {
-  let s = slug(t || '');
-  if (s.length > 70) s = s.slice(0, 70).replace(/-[^-]*$/, '');
-  return s || 'licitacion';
-}
-const numeroId = (x) => String(x.id).split('/').pop().replace(/[^0-9A-Za-z]/g, '');
-const rutaFicha = (x) => `/licitacion/${slugCorto(x.t)}-${numeroId(x)}/`;
 
 async function contarArchivos(dir) {
   let n = 0;
@@ -140,6 +130,7 @@ function pagina({ ruta, titulo, descripcion, migas, cuerpo, actualizado, pieDato
 }
 
 let tieneFicha = () => false;
+const nombreCorto = (n) => (n.length > 40 ? n.slice(0, 38).replace(/\s+\S*$/, '') + '…' : n);
 function enlaceTitulo(x) {
   return tieneFicha(x)
     ? `<a href="${rutaFicha(x)}">${esc(x.t || 'Sin título')}</a>`
@@ -400,7 +391,8 @@ async function main() {
     const bloqueAdj = adjudicada ? `
   <h2>Adjudicación</h2>
   <ul class="ganadores">${x.ad.map(([empresa, importe, ofertas]) => `<li><b>${esc(empresa)}</b><span>${importe ? euros.format(importe) + ' sin IVA' : 'Importe no indicado'}${ofertas ? ` · ${ofertas} ${ofertas === 1 ? 'oferta recibida' : 'ofertas recibidas'}` : ''}</span></li>`).join('')}</ul>
-  ${(x.nad || x.ad.length) > x.ad.length ? `<p class="nota">Hay ${x.nad - x.ad.length} adjudicaciones más (lotes). Consulta el detalle en el anuncio oficial.</p>` : ''}` : '';
+  ${(x.nad || x.ad.length) > x.ad.length ? `<p class="nota">Hay ${x.nad - x.ad.length} adjudicaciones más (lotes). Consulta el detalle en el anuncio oficial.</p>` : ''}
+  <p class="aviso-empresa"><a class="boton" href="/#alerta=empresa&emp=${encodeURIComponent(x.ad[0][0]).replace(/%20/g, '+')}">Avisarme cuando ${esc(nombreCorto(x.ad[0][0]))} gane otra licitación</a></p>` : '';
 
     const datos = [
       ['Organismo', esc(x.o)],

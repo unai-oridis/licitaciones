@@ -129,6 +129,7 @@ input[type=password], input[type=search] { width: 100%; height: 42px; padding: 0
 
   function describir(f) {
     const partes = [];
+    if (f.emp) partes.push('Empresa: «' + f.emp + '»');
     if (f.cpv?.length) partes.push('CPV ' + f.cpv.join(', '));
     if (f.prov?.length) partes.push(f.prov.map((p) => meta.provincias[p] || p).join(', ') + (f.estatal ? ' y ámbito estatal' : ''));
     if (f.q) partes.push('«' + f.q + '»');
