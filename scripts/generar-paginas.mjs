@@ -122,7 +122,7 @@ function pagina({ ruta, titulo, descripcion, migas, cuerpo, actualizado, pieDato
 </main>
 <footer class="pie">
   <p>Esta web no es oficial. Antes de presentar una oferta, comprueba plazos y pliegos en el anuncio original.</p>
-  <nav><span>© ${AHORA.getFullYear()} Soluciones Globales Echeyde 360, S.L.U.</span><a href="/aviso-legal.html">Aviso legal</a><a href="/privacidad.html">Privacidad</a><a href="/cookies.html">Cookies</a><a href="mailto:contacto@licitaempresa.es">contacto@licitaempresa.es</a></nav>
+  <nav><span>© ${AHORA.getFullYear()} Soluciones Globales Echeyde 360, S.L.U.</span><a href="/anunciate.html">Anúnciate</a><a href="/aviso-legal.html">Aviso legal</a><a href="/privacidad.html">Privacidad</a><a href="/cookies.html">Cookies</a><a href="mailto:contacto@licitaempresa.es">contacto@licitaempresa.es</a></nav>
 </footer>
 </body>
 </html>
@@ -467,7 +467,7 @@ async function main() {
 
   // --- sitemap.xml
   const hoy = AHORA.toISOString().slice(0, 10);
-  const urls = [['/', '1.0'], ...sitemap, ['/aviso-legal.html', '0.2'], ['/privacidad.html', '0.2'], ['/cookies.html', '0.2']];
+  const urls = [['/', '1.0'], ...sitemap, ['/anunciate.html', '0.3'], ['/aviso-legal.html', '0.2'], ['/privacidad.html', '0.2'], ['/cookies.html', '0.2']];
   await fs.writeFile(path.join(RAIZ, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map(([r, pr, lm]) => `  <url><loc>${SITIO}${encodeURI(r)}</loc><lastmod>${/^\d{4}-\d{2}-\d{2}/.test(lm || '') ? lm.slice(0, 10) : hoy}</lastmod><priority>${pr}</priority></url>`).join('\n')}
