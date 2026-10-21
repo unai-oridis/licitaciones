@@ -2,7 +2,7 @@ name: Actualizar y publicar
 
 on:
   # Cada 3 horas (GitHub a veces se salta alguna ejecución programada; así no importa).
-  # Las alertas se envían una vez al día, en la primera ejecución a partir de las 7:00 (hora de Madrid).
+  # Las alertas se envían una vez al día, en la primera ejecución a partir de las 6:00 (hora de Madrid).
   schedule:
     - cron: '17 */3 * * *'
   # Botón "Run workflow" en la pestaña Actions

@@ -55,11 +55,12 @@ async function main() {
     return;
   }
 
-  // Una vez al día: en la primera ejecución a partir de las 7:00 de Madrid (salvo envío forzado a mano).
+  // Una vez al día: en la primera ejecución a partir de las 6:00 de Madrid (salvo envío forzado a mano).
+  // El Ministerio publica las novedades de madrugada, así que a esa hora ya están todas.
   const hoyMadrid = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date());
   const horaMadrid = Number(new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false }).format(new Date()));
   if (!process.env.ALERTAS_JSON && process.env.FORZAR !== '1') {
-    if (horaMadrid < 7) { log(`Son las ${horaMadrid} h en Madrid: las alertas se envían a partir de las 7.`); return; }
+    if (horaMadrid < 6) { log(`Son las ${horaMadrid} h en Madrid: las alertas se envían a partir de las 6.`); return; }
     const ultimo = (await d1("SELECT valor FROM control WHERE clave = 'ultimo_envio_diario'"))[0]?.valor;
     if (ultimo === hoyMadrid) { log('Las alertas de hoy ya se enviaron.'); return; }
   }
@@ -104,8 +105,14 @@ async function main() {
     if (r.ok) { enviados++; await marcarEnviado(email); }
     else { fallos++; log(`  fallo enviando a una dirección: ${r.error}`); }
   }
-  if (!process.env.ALERTAS_JSON && (enviados || !fallos)) {
-    await d1("INSERT INTO control (clave, valor) VALUES ('ultimo_envio_diario', ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor", [hoyMadrid]);
+  if (!process.env.ALERTAS_JSON) {
+    const guardar = (clave, valor) => d1('INSERT INTO control (clave, valor) VALUES (?, ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor', [clave, valor]);
+    if (enviados || !fallos) await guardar('ultimo_envio_diario', hoyMadrid);
+    // Resumen para el panel de administración
+    await guardar('ultimo_resumen', JSON.stringify({
+      fecha: new Date().toISOString(), alertas: alertas.length, personas: porEmail.size, enviados, sinNovedades, aplazados, fallos,
+      licitacionesEnPlazo: abiertas.length,
+    }));
   }
   log(`Listo: ${enviados} emails enviados, ${sinNovedades} sin novedades, ${aplazados} aplazados por límite diario, ${fallos} fallos.`);
   if (fallos && !enviados) process.exitCode = 1;
