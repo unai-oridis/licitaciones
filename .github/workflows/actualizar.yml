@@ -7,7 +7,8 @@ on:
   # Las alertas se envían una vez al día, en la primera ejecución a partir de las 6:00 (hora de Madrid).
   schedule:
     - cron: '17 */3 * * *'
-  # Botón "Run workflow" en la pestaña Actions
+  # Botón "Run workflow" en la pestaña Actions. También lo pulsa cada 3 horas el
+  # "despertador" de Cloudflare (despertador/worker.js), por si GitHub se salta el horario.
   workflow_dispatch:
     inputs:
       meses_iniciales:
@@ -19,6 +20,10 @@ on:
         default: false
       enviar_alertas:
         description: 'Enviar también las alertas por email al terminar'
+        type: boolean
+        default: false
+      automatico:
+        description: 'Uso interno: lo marca el despertador de Cloudflare (no tocar)'
         type: boolean
         default: false
 
@@ -77,7 +82,7 @@ jobs:
           exit 1
 
       - name: Enviar alertas por email
-        if: github.event_name == 'schedule' || github.event.inputs.enviar_alertas == 'true'
+        if: github.event_name == 'schedule' || github.event.inputs.automatico == 'true' || github.event.inputs.enviar_alertas == 'true'
         continue-on-error: true
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
