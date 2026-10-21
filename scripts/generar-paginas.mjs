@@ -7,6 +7,7 @@
 //   /licitacion/{titulo}-{numero}/         ficha de cada licitación abierta y de las adjudicaciones más recientes
 //   /licitacion/fichas.json                qué licitaciones tienen ficha (lo usa el buscador)
 //   /empresas/                             empresas que más adjudicaciones ganan
+//   /guias/ y /guias/{guia}/               guías para empresas (lib/guias.mjs)
 //   /js/                                   copia de lib/fichas.mjs y lib/empresas.mjs para el buscador
 //   /sitemap.xml                           índice de sitemaps (páginas y empresas)
 // Las páginas de cada empresa (/empresa/{slug}) no son archivos: las monta functions/empresa/[slug].js.
@@ -18,6 +19,7 @@ import { CPV_SECTORES } from '../lib/cpv.mjs';
 import { slug, rutaFicha } from '../lib/fichas.mjs';
 import { pagina, esc, SITIO } from '../lib/plantilla.mjs';
 import { agruparEmpresas, tienePagina, rutaEmpresa } from '../lib/empresas.mjs';
+import { GUIAS } from '../lib/guias.mjs';
 
 const RAIZ = process.env.DIR_PUBLICO || 'public';
 const DIR_DATOS = path.join(RAIZ, 'data');
@@ -177,6 +179,7 @@ async function main() {
   await fs.rm(path.join(RAIZ, 'licitaciones'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'licitacion'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'empresas'), { recursive: true, force: true });
+  await fs.rm(path.join(RAIZ, 'guias'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'js'), { recursive: true, force: true });
 
   const codProv = Object.keys(provincias).filter((p) => p !== '00' && p !== '99').sort((a, b) => provincias[a].localeCompare(provincias[b], 'es'));
@@ -210,6 +213,7 @@ async function main() {
   // --- Qué licitaciones tienen ficha propia (sin pasar del límite de archivos)
   const comunidades = (meta.comunidades || []).filter(([, provs]) => provs.length > 1);
   const paginasListado = codProv.length + comunidades.length + combos.size + 2 + 3 // + /empresas/, sitemaps
+    + GUIAS.length + 1
     + 2 // archivos en /js/
     + sectores.filter((s) => abPorSector.get(s.c).length || adjPorSector.get(s.c).length).length;
   const libres = LIMITE_ARCHIVOS - (await contarArchivos(RAIZ)) - paginasListado - 5;
@@ -396,6 +400,7 @@ async function main() {
       conProv ? [`Licitaciones en ${nombreProv}`, rutaProv(x.p)] : null,
       conProv && sec && combos.has(`${x.p}|${sec.c}`) ? [`${sec.n} en ${nombreProv}`, rutaCombo(x.p, sec)] : null,
       sec ? [`${sec.n} en toda España`, rutaSector(sec)] : null,
+      adjudicada ? null : ['Cómo presentarse a una licitación', '/guias/como-presentarse-a-una-licitacion-publica/'],
     ].filter(Boolean);
 
     const cuerpo = `
@@ -456,6 +461,43 @@ async function main() {
   ${enlacesRelacionados('Ranking por número de adjudicaciones', ranking)}`,
     actualizado,
   }), sitemap, '0.7');
+
+  // --- Guías para empresas
+  const listaGuias = `<ul class="enlaces guias">${GUIAS.map((g) => `<li><a href="/guias/${g.slug}/">${esc(g.titulo)}</a></li>`).join('')}</ul>`;
+  for (const g of GUIAS) {
+    const ruta = `/guias/${g.slug}/`;
+    const otras = GUIAS.filter((o) => o !== g);
+    await escribir(ruta, pagina({
+      ruta, titulo: g.titulo, descripcion: g.descripcion,
+      migas: [['Inicio', '/'], ['Guías', '/guias/'], [g.corto, ruta]],
+      cuerpo: `
+  <article class="guia">
+  <h1>${esc(g.titulo)}</h1>
+  ${g.html}
+  </article>
+  <section class="resumen guia-cta">
+    <div><b>${numero.format(abiertas.length)}</b><span>licitaciones abiertas ahora</span></div>
+    <div><b>Gratis</b><span>sin registro</span></div>
+    <div class="acciones"><a class="boton principal" href="/">Buscar licitaciones</a><a class="boton" href="/#alerta=1">Crear una alerta por email</a></div>
+  </section>
+  <h2>Otras guías</h2>
+  <ul class="enlaces guias">${otras.map((o) => `<li><a href="/guias/${o.slug}/">${esc(o.titulo)}</a></li>`).join('')}</ul>`,
+      ldExtra: { '@context': 'https://schema.org', '@type': 'Article', headline: g.titulo, description: g.descripcion, inLanguage: 'es',
+        author: { '@type': 'Organization', name: 'LicitaEmpresa' }, publisher: { '@type': 'Organization', name: 'Soluciones Globales Echeyde 360, S.L.U.' },
+        mainEntityOfPage: SITIO + ruta },
+      pieDatos: 'Guía informativa elaborada por LicitaEmpresa a partir de la Ley 9/2017 de Contratos del Sector Público. Los importes son orientativos y pueden cambiar: en cada licitación mandan sus pliegos. No constituye asesoramiento jurídico.',
+    }), sitemap, '0.7');
+  }
+  await escribir('/guias/', pagina({
+    ruta: '/guias/', titulo: 'Guías para presentarse a licitaciones públicas',
+    descripcion: 'Guías gratuitas para empresas y autónomos: cómo presentarse a una licitación pública, códigos CPV, procedimientos, documentación y consejos para ganar concursos.',
+    migas: [['Inicio', '/'], ['Guías', '/guias/']],
+    cuerpo: `
+  <h1>Guías para presentarse a licitaciones públicas</h1>
+  <p class="intro">Todo lo que necesita saber una empresa o un autónomo para empezar a vender a la Administración, explicado de forma sencilla.</p>
+  ${listaGuias}`,
+    pieDatos: 'Guías informativas. No constituyen asesoramiento jurídico: en cada licitación mandan sus pliegos.',
+  }), sitemap, '0.8');
 
   // --- Código compartido para el buscador (enlaces a fichas y empresas)
   await fs.mkdir(path.join(RAIZ, 'js'), { recursive: true });
