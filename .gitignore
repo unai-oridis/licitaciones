@@ -1,5 +1,6 @@
 node_modules/
 # Se generan al publicar en Cloudflare (scripts/generar-paginas.mjs)
 public/licitaciones/
+public/licitacion/
 public/sitemap.xml
 .DS_Store

@@ -4,6 +4,8 @@
 //   /licitaciones/{comunidad}/             por comunidad (solo las de varias provincias)
 //   /licitaciones/sector/{sector}/         por sector CPV
 //   /licitaciones/{provincia}/{sector}/    sector + provincia (si hay al menos MIN_COMBO abiertas)
+//   /licitacion/{titulo}-{numero}/         ficha de cada licitación abierta y de las adjudicaciones más recientes
+//   /licitacion/fichas.json                qué licitaciones tienen ficha (lo usa el buscador)
 //   /sitemap.xml
 // Lo ejecuta Cloudflare Pages al publicar (comando de compilación), así las páginas no se guardan en GitHub.
 
@@ -17,6 +19,10 @@ const SITIO = 'https://licitaempresa.es';
 const MIN_COMBO = 3;          // mínimo de licitaciones abiertas para crear una página sector + provincia
 const MAX_LISTA = 100;        // licitaciones abiertas que se muestran por página
 const MAX_ADJ = 15;           // adjudicaciones recientes que se muestran por página
+// Cloudflare Pages (plan gratuito) admite como máximo 20.000 archivos por publicación.
+// Dejamos margen: las fichas de licitaciones ocupan lo que sobre hasta este límite.
+const LIMITE_ARCHIVOS = 19000;
+const MAX_RELACIONADAS = 6;   // otras licitaciones que se enlazan desde cada ficha
 const AHORA = new Date();
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -47,25 +53,48 @@ async function leer(ruta) { return JSON.parse(await fs.readFile(ruta, 'utf8')); 
 
 async function cargar() {
   const meta = await leer(path.join(DIR_DATOS, 'indice.json'));
-  const abiertas = (await leer(path.join(DIR_DATOS, meta.archivos.abiertas.f))).items
-    .filter((x) => x.g === 'A' && (!x.f || x.f >= AHORA_MADRID));
-  const adjudicadas = [];
-  for (const h of meta.archivos.historico || []) {
-    if (!h.grupos?.J && !h.grupos?.F) continue;
+  const todas = [];
+  for (const h of [meta.archivos.abiertas, ...(meta.archivos.historico || [])]) {
+    if (!h?.f) continue;
     for (const x of (await leer(path.join(DIR_DATOS, h.f))).items) {
-      if ((x.g === 'J' || x.g === 'F') && x.ad?.length) {
-        adjudicadas.push({ t: x.t, o: x.o, p: x.p, c: x.c || [], u: x.u, ad: x.ad, nad: x.nad, fa: x.fa || x.a, i: x.i });
-      }
+      x.c = x.c || [];
+      todas.push(x);
     }
   }
+  const abiertas = todas.filter((x) => x.g === 'A' && (!x.f || x.f >= AHORA_MADRID));
+  const hoy = AHORA_MADRID.slice(0, 10);
+  const adjudicadas = todas.filter((x) => (x.g === 'J' || x.g === 'F') && x.ad?.length)
+    .map((x) => { x.fa = x.fa || x.a; return x; })
+    .filter((x) => x.fa && x.fa <= hoy);
   adjudicadas.sort((a, b) => (a.fa < b.fa ? 1 : -1));
   abiertas.sort((a, b) => (a.f || '9999') < (b.f || '9999') ? -1 : 1);
-  return { meta, abiertas, adjudicadas };
+  // Candidatas a ficha propia: todas las abiertas o en anuncio previo (aunque el plazo haya vencido hace poco)
+  const vivas = todas.filter((x) => x.g === 'A' || x.g === 'P');
+  return { meta, abiertas, adjudicadas, vivas };
+}
+
+// ---------- fichas de licitación ----------
+
+// Misma regla que en public/index.html (función rutaFicha): si se cambia aquí, cambiarla también allí.
+function slugCorto(t) {
+  let s = slug(t || '');
+  if (s.length > 70) s = s.slice(0, 70).replace(/-[^-]*$/, '');
+  return s || 'licitacion';
+}
+const numeroId = (x) => String(x.id).split('/').pop().replace(/[^0-9A-Za-z]/g, '');
+const rutaFicha = (x) => `/licitacion/${slugCorto(x.t)}-${numeroId(x)}/`;
+
+async function contarArchivos(dir) {
+  let n = 0;
+  for (const e of await fs.readdir(dir, { withFileTypes: true })) {
+    n += e.isDirectory() ? await contarArchivos(path.join(dir, e.name)) : 1;
+  }
+  return n;
 }
 
 // ---------- plantilla HTML ----------
 
-function pagina({ ruta, titulo, descripcion, migas, cuerpo, actualizado }) {
+function pagina({ ruta, titulo, descripcion, migas, cuerpo, actualizado, pieDatos }) {
   const url = SITIO + ruta;
   const ld = {
     '@context': 'https://schema.org', '@type': 'BreadcrumbList',
@@ -99,7 +128,7 @@ function pagina({ ruta, titulo, descripcion, migas, cuerpo, actualizado }) {
 <main class="marco">
   <nav class="migas" aria-label="Estás en">${migas.map(([n, r], i) => (i < migas.length - 1 ? `<a href="${r}">${esc(n)}</a><span aria-hidden="true">›</span>` : `<span aria-current="page">${esc(n)}</span>`)).join('')}</nav>
   ${cuerpo}
-  <p class="actualizado">Datos actualizados el ${esc(actualizado)}. Fuente: Plataforma de Contratación del Sector Público (Ministerio de Hacienda) y plataformas autonómicas.</p>
+  <p class="actualizado">${pieDatos || `Datos actualizados el ${esc(actualizado)}. Fuente: Plataforma de Contratación del Sector Público (Ministerio de Hacienda) y plataformas autonómicas.`}</p>
 </main>
 <footer class="pie">
   <p>Esta web no es oficial. Antes de presentar una oferta, comprueba plazos y pliegos en el anuncio original.</p>
@@ -108,6 +137,13 @@ function pagina({ ruta, titulo, descripcion, migas, cuerpo, actualizado }) {
 </body>
 </html>
 `;
+}
+
+let tieneFicha = () => false;
+function enlaceTitulo(x) {
+  return tieneFicha(x)
+    ? `<a href="${rutaFicha(x)}">${esc(x.t || 'Sin título')}</a>`
+    : `<a href="${esc(x.u)}" rel="noopener nofollow" target="_blank">${esc(x.t || 'Sin título')}</a>`;
 }
 
 function filaAbierta(x, provincias) {
@@ -122,7 +158,7 @@ function filaAbierta(x, provincias) {
   return `<li class="lic">
   <div class="plazo">${plazo}</div>
   <div class="cuerpo">
-    <h3><a href="${esc(x.u)}" rel="noopener nofollow" target="_blank">${esc(x.t || 'Sin título')}</a></h3>
+    <h3>${enlaceTitulo(x)}</h3>
     <p class="organo">${esc(x.o)}</p>
     <p class="datos"><span>${esc(provincias[x.p] || '')}</span>${x.c?.length ? `<span>CPV ${esc(x.c.slice(0, 3).join(', '))}</span>` : ''}</p>
   </div>
@@ -134,7 +170,7 @@ function filaAdjudicada(x, provincias) {
   const [empresa, importe, ofertas] = x.ad[0];
   const mas = (x.nad || x.ad.length) - 1;
   return `<li class="adj">
-  <h3><a href="${esc(x.u)}" rel="noopener nofollow" target="_blank">${esc(x.t || 'Sin título')}</a></h3>
+  <h3>${enlaceTitulo(x)}</h3>
   <p class="organo">${esc(x.o)} · ${esc(provincias[x.p] || '')} · ${fechaCorta(x.fa)}</p>
   <p class="ganador">Adjudicada a <b>${esc(empresa)}</b>${importe ? ` por ${euros.format(importe)}` : ''}${ofertas ? `, ${ofertas} ${ofertas === 1 ? 'oferta' : 'ofertas'}` : ''}${mas > 0 ? ` y ${mas} ${mas === 1 ? 'lote más' : 'lotes más'}` : ''}</p>
 </li>`;
@@ -172,22 +208,23 @@ function enlacesRelacionados(titulo, enlaces) {
 
 // ---------- generación ----------
 
-async function escribir(ruta, html, sitemap, prioridad = '0.6') {
+async function escribir(ruta, html, sitemap, prioridad = '0.6', lastmod) {
   const archivo = path.join(RAIZ, ruta, 'index.html');
   await fs.mkdir(path.dirname(archivo), { recursive: true });
   await fs.writeFile(archivo, html);
-  sitemap.push([ruta, prioridad]);
+  sitemap.push([ruta, prioridad, lastmod]);
 }
 
 async function main() {
   const t0 = Date.now();
-  const { meta, abiertas, adjudicadas } = await cargar();
+  const { meta, abiertas, adjudicadas, vivas } = await cargar();
   const provincias = meta.provincias || {};
   const actualizado = fechaHora.format(new Date(meta.actualizado));
   const sitemap = [];
 
   // Limpiar lo generado en ejecuciones anteriores (en local)
   await fs.rm(path.join(RAIZ, 'licitaciones'), { recursive: true, force: true });
+  await fs.rm(path.join(RAIZ, 'licitacion'), { recursive: true, force: true });
 
   const codProv = Object.keys(provincias).filter((p) => p !== '00' && p !== '99').sort((a, b) => provincias[a].localeCompare(provincias[b], 'es'));
   const slugProv = Object.fromEntries(codProv.map((p) => [p, slug(provincias[p])]));
@@ -217,6 +254,28 @@ async function main() {
   const rutaSector = (s) => `/licitaciones/sector/${s.s}/`;
   const rutaCombo = (p, s) => `/licitaciones/${slugProv[p]}/${s.s}/`;
 
+  // --- Qué licitaciones tienen ficha propia (sin pasar del límite de archivos)
+  const comunidades = (meta.comunidades || []).filter(([, provs]) => provs.length > 1);
+  const paginasListado = codProv.length + comunidades.length + combos.size + 1
+    + sectores.filter((s) => abPorSector.get(s.c).length || adjPorSector.get(s.c).length).length;
+  const libres = LIMITE_ARCHIVOS - (await contarArchivos(RAIZ)) - paginasListado - 5;
+  const fichas = vivas.slice(0, Math.max(0, libres));
+  let adjDesde = '9999-12-31';
+  let hueco = libres - fichas.length;
+  // Adjudicaciones: días completos, de la más reciente hacia atrás, mientras quepan
+  for (let i = 0; i < adjudicadas.length && hueco > 0;) {
+    const dia = adjudicadas[i].fa;
+    let j = i;
+    while (j < adjudicadas.length && adjudicadas[j].fa === dia) j++;
+    if (j - i > hueco) break;
+    fichas.push(...adjudicadas.slice(i, j));
+    hueco -= j - i;
+    adjDesde = dia;
+    i = j;
+  }
+  const conFicha = new Set(fichas);
+  tieneFicha = (x) => conFicha.has(x);
+
   // --- Provincias
   for (const p of codProv) {
     const nombre = provincias[p];
@@ -240,7 +299,6 @@ async function main() {
   }
 
   // --- Comunidades con varias provincias
-  const comunidades = (meta.comunidades || []).filter(([, provs]) => provs.length > 1);
   for (const [com, provs] of comunidades) {
     const ruta = `/licitaciones/${slug(com)}/`;
     const ab = abiertas.filter((x) => provs.includes(x.p));
@@ -305,6 +363,98 @@ async function main() {
     }
   }
 
+  // --- Fichas de cada licitación
+  const tipos = meta.tipos || {};
+  const procs = meta.procedimientos || {};
+  const abiertasPorProv = new Map();
+  for (const x of abiertas) if (conFicha.has(x)) {
+    if (!abiertasPorProv.has(x.p)) abiertasPorProv.set(x.p, []);
+    abiertasPorProv.get(x.p).push(x);
+  }
+  const sectorDe = (x) => {
+    let mejor = null;
+    for (const s of sectores) if (enSector(x, s.c) && (!mejor || s.c.length > mejor.c.length)) mejor = s;
+    return mejor;
+  };
+  const fechaTexto = (f) => (f ? fechaLarga.format(new Date(f.slice(0, 10) + 'T12:00:00Z')) : '');
+  for (const x of fichas) {
+    const ruta = rutaFicha(x);
+    const nombreProv = provincias[x.p] || '';
+    const conProv = !!slugProv[x.p];
+    const sec = sectorDe(x);
+    const adjudicada = x.g === 'J' || x.g === 'F';
+    const vencida = x.g === 'A' && x.f && x.f < AHORA_MADRID;
+    const estado = adjudicada ? (x.g === 'F' ? 'Formalizada' : 'Adjudicada')
+      : x.g === 'P' ? 'Anuncio previo' : vencida ? 'Plazo cerrado' : 'En plazo';
+    let plazo = '';
+    if (!adjudicada) {
+      if (x.f) {
+        const [d, h] = [x.f.slice(0, 10), x.f.slice(11, 16)];
+        plazo = `${fechaTexto(d)}${h && h !== '00:00' ? ` a las ${h}` : ''}`;
+      } else plazo = 'Consulta el anuncio oficial';
+    }
+    const buscador = enlaceBuscador({ cpv: sec?.c, prov: conProv ? [x.p] : [] });
+    const titulo = x.t || 'Licitación sin título';
+    const cortado = titulo.length > 90 ? titulo.slice(0, 88).replace(/\s+\S*$/, '') + '…' : titulo;
+
+    const bloqueAdj = adjudicada ? `
+  <h2>Adjudicación</h2>
+  <ul class="ganadores">${x.ad.map(([empresa, importe, ofertas]) => `<li><b>${esc(empresa)}</b><span>${importe ? euros.format(importe) + ' sin IVA' : 'Importe no indicado'}${ofertas ? ` · ${ofertas} ${ofertas === 1 ? 'oferta recibida' : 'ofertas recibidas'}` : ''}</span></li>`).join('')}</ul>
+  ${(x.nad || x.ad.length) > x.ad.length ? `<p class="nota">Hay ${x.nad - x.ad.length} adjudicaciones más (lotes). Consulta el detalle en el anuncio oficial.</p>` : ''}` : '';
+
+    const datos = [
+      ['Organismo', esc(x.o)],
+      ['Expediente', esc(x.e)],
+      ['Tipo de contrato', esc(tipos[x.tc] || '')],
+      ['Procedimiento', esc(procs[x.pr] || '')],
+      ['Lugar', conProv ? `<a href="${rutaProv(x.p)}">${esc(nombreProv)}</a>` : esc(nombreProv)],
+      ['Códigos CPV', x.c.map((c) => { const s2 = sectores.filter((s) => c.startsWith(s.c)).sort((a, b) => b.c.length - a.c.length)[0];
+        return s2 ? `${esc(c)} (<a href="${rutaSector(s2)}">${esc(s2.n)}</a>)` : esc(c); }).join('<br>')],
+      ['Publicada', fechaTexto(x.fp)],
+      ['Última actualización', fechaTexto(x.a)],
+      ['Fuente', x.id.startsWith('Plataformas') ? 'Plataformas autonómicas agregadas en la Plataforma de Contratación del Sector Público' : 'Plataforma de Contratación del Sector Público'],
+    ].filter(([, v]) => v);
+
+    let parecidas = (abiertasPorProv.get(x.p) || []).filter((o) => o !== x);
+    if (sec) {
+      const mismas = parecidas.filter((o) => enSector(o, sec.c));
+      parecidas = [...mismas, ...parecidas.filter((o) => !enSector(o, sec.c))];
+    }
+    parecidas = parecidas.slice(0, MAX_RELACIONADAS);
+
+    const relacionados = [
+      conProv ? [`Licitaciones en ${nombreProv}`, rutaProv(x.p)] : null,
+      conProv && sec && combos.has(`${x.p}|${sec.c}`) ? [`${sec.n} en ${nombreProv}`, rutaCombo(x.p, sec)] : null,
+      sec ? [`${sec.n} en toda España`, rutaSector(sec)] : null,
+    ].filter(Boolean);
+
+    const cuerpo = `
+  <p class="estado"><span class="badge" data-g="${adjudicada ? x.g : vencida ? 'E' : x.g}">${estado}</span></p>
+  <h1 class="titulo-ficha">${esc(titulo)}</h1>
+  <p class="intro">${esc(x.o)}${nombreProv ? ` · ${esc(nombreProv)}` : ''}</p>
+  <section class="resumen ficha">
+    <div><b>${x.i ? euros.format(x.i) : '—'}</b><span>presupuesto sin IVA</span></div>
+    <div><b class="plazo-ficha">${adjudicada ? esc(fechaTexto(x.fa)) : esc(plazo)}</b><span>${adjudicada ? 'fecha de adjudicación' : x.g === 'P' ? 'fecha prevista' : 'fin del plazo de presentación'}</span></div>
+    <div class="acciones"><a class="boton principal" href="${esc(x.u)}" rel="noopener nofollow" target="_blank">Ver anuncio y pliegos oficiales</a><a class="boton" href="${buscador}&alerta=1">Avisarme de licitaciones parecidas</a></div>
+  </section>
+  ${bloqueAdj}
+  <h2>Datos de la licitación</h2>
+  <dl class="ficha-datos">${datos.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+  ${parecidas.length ? `<h2>Otras licitaciones abiertas${nombreProv && conProv ? ` en ${esc(nombreProv)}` : ''}</h2><ol class="lista">${parecidas.map((o) => filaAbierta(o, provincias)).join('')}</ol>` : ''}
+  ${relacionados.length ? `<p class="volver">${relacionados.map(([t, r]) => `<a href="${r}">${esc(t)}</a>`).join(' · ')}</p>` : ''}`;
+
+    const desc = adjudicada
+      ? `${titulo.slice(0, 80)}. Adjudicada a ${x.ad[0][0]}${x.ad[0][1] ? ` por ${euros.format(x.ad[0][1])}` : ''}. ${x.o}${nombreProv ? `, ${nombreProv}` : ''}.`
+      : `${titulo.slice(0, 80)}. ${x.o}${nombreProv ? `, ${nombreProv}` : ''}. ${x.i ? `Presupuesto ${euros.format(x.i)} sin IVA. ` : ''}${x.f ? `Plazo hasta el ${fechaCorta(x.f)}.` : ''}`;
+    await escribir(ruta, pagina({
+      ruta, titulo: cortado, descripcion: desc.slice(0, 300),
+      migas: [['Inicio', '/'], ['Licitaciones', '/licitaciones/'], ...(conProv ? [[nombreProv, rutaProv(x.p)]] : []), [cortado.length > 50 ? cortado.slice(0, 48).replace(/\s+\S*$/, '') + '…' : cortado, ruta]],
+      cuerpo,
+      pieDatos: 'Información obtenida de la Plataforma de Contratación del Sector Público (Ministerio de Hacienda). Antes de presentar una oferta, revisa los pliegos y los plazos en el anuncio oficial.',
+    }), sitemap, adjudicada ? '0.4' : '0.5', x.a);
+  }
+  await fs.writeFile(path.join(RAIZ, 'licitacion', 'fichas.json'), JSON.stringify({ adjDesde, adjHasta: AHORA_MADRID.slice(0, 10), n: fichas.length }));
+
   // --- Índice general /licitaciones/
   const porComunidad = (meta.comunidades || []).map(([com, provs]) => `<div class="grupo"><h3>${provs.length > 1 ? `<a href="/licitaciones/${slug(com)}/">${esc(com)}</a>` : esc(com)}</h3><ul>${provs
     .map((p) => `<li><a href="${rutaProv(p)}">${esc(provincias[p])}</a> <span>${numero.format(abPorProv.get(p)?.length || 0)}</span></li>`).join('')}</ul></div>`).join('');
@@ -328,11 +478,11 @@ async function main() {
   const urls = [['/', '1.0'], ...sitemap, ['/aviso-legal.html', '0.2'], ['/privacidad.html', '0.2'], ['/cookies.html', '0.2']];
   await fs.writeFile(path.join(RAIZ, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map(([r, pr]) => `  <url><loc>${SITIO}${r}</loc><lastmod>${hoy}</lastmod><priority>${pr}</priority></url>`).join('\n')}
+${urls.map(([r, pr, lm]) => `  <url><loc>${SITIO}${encodeURI(r)}</loc><lastmod>${/^\d{4}-\d{2}-\d{2}/.test(lm || '') ? lm.slice(0, 10) : hoy}</lastmod><priority>${pr}</priority></url>`).join('\n')}
 </urlset>
 `);
 
-  console.log(`Páginas generadas: ${sitemap.length} (${codProv.length} provincias, ${comunidades.length} comunidades, ${combos.size} sector+provincia) en ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  console.log(`Páginas generadas: ${sitemap.length} (${codProv.length} provincias, ${comunidades.length} comunidades, ${combos.size} sector+provincia, ${fichas.length} fichas de licitación; adjudicaciones desde ${adjDesde}) en ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

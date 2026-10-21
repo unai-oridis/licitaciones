@@ -404,6 +404,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
   const quitarTildes = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
   let meta = {};
+  let fichas = null; // qué licitaciones tienen página propia (lo genera scripts/generar-paginas.mjs)
   const cargados = new Map(); // archivo -> items
   let todos = [];
   let resultado = [];
@@ -701,6 +702,21 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     return `<p class="adj">Adjudicada a ${partes.join('; ')}${resto > 0 ? ` <span class="mas-lotes">y ${resto} más</span>` : ''}</p>`;
   }
 
+  // Misma regla que en scripts/generar-paginas.mjs: si se cambia aquí, cambiarla también allí.
+  function slugCorto(t) {
+    let s = String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (s.length > 70) s = s.slice(0, 70).replace(/-[^-]*$/, '');
+    return s || 'licitacion';
+  }
+  function rutaFicha(x) {
+    if (!fichas || !x.id) return null;
+    const conFicha = x.g === 'A' || x.g === 'P'
+      || ((x.g === 'J' || x.g === 'F') && x.ad?.length && (x.fa || x.a) >= fichas.adjDesde && (x.fa || x.a) <= fichas.adjHasta);
+    if (!conFicha) return null;
+    return `/licitacion/${slugCorto(x.t)}-${String(x.id).split('/').pop().replace(/[^0-9A-Za-z]/g, '')}/`;
+  }
+
   function fila(x, tAhora) {
     const { clase, html } = columnaPlazo(x, tAhora);
     const cpvs = x.c.slice(0, 4).map((c) => `<button type="button" class="cpv" data-c="${c}" title="Filtrar por ${c}">${c}</button>`).join(' ')
@@ -715,7 +731,8 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     return `<li class="lic ${clase}">
       <div class="plazo">${html}</div>
       <div>
-        <h3 class="titulo"><a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a></h3>
+        <h3 class="titulo">${(() => { const r = rutaFicha(x);
+          return r ? `<a href="${r}">${esc(x.t || 'Sin título')}</a>` : `<a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a>`; })()}</h3>
         <p class="organo">${esc(x.o)}</p>
         <p class="datos">${datosFila}</p>
         ${lineaAdjudicacion(x)}
@@ -805,6 +822,8 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
   }
 
   async function iniciar() {
+    const pideFichas = fetch('/licitacion/fichas.json', { cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.adjDesde) fichas = d; }).catch(() => {});
     try {
       const r = await fetch('data/indice.json', { cache: 'no-cache' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -832,6 +851,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
       $('vacio').innerHTML = '<div class="vacio"><p>No hay datos disponibles ahora mismo.</p><p>La primera carga de datos tarda alrededor de una hora y media.</p></div>';
       return;
     }
+    await pideFichas;
     $('estadoDatos').innerHTML = `<strong>${fmtNum.format(meta.total ?? 0)}</strong> licitaciones en plazo, actualizadas ${haceCuanto(meta.actualizado)}`;
     prepararControles();
     leerURL();
