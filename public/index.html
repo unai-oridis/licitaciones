@@ -13,246 +13,279 @@
 <meta property="og:url" content="https://licitaempresa.es/">
 <meta property="og:locale" content="es_ES">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"LicitaEmpresa","url":"https://licitaempresa.es/","inLanguage":"es","publisher":{"@type":"Organization","name":"Soluciones Globales Echeyde 360, S.L.U.","email":"contacto@licitaempresa.es"}}</script>
-<link rel="stylesheet" href="fuentes.css">
+<link rel="stylesheet" href="/fuentes.css">
 <style>
 :root {
-  --bg: #F3F5F8;
-  --surface: #FFFFFF;
-  --ink: #102A43;
-  --muted: #52667A;
-  --line: #DCE3EA;
-  --line-strong: #C5D0DB;
-  --accent: #0A6E8A;
-  --accent-ink: #FFFFFF;
-  --accent-soft: #E3F1F5;
-  --head: #0F2B46;
-  --head-ink: #FFFFFF;
-  --head-muted: #A9BDD1;
-  --field: #F7F9FB;
-  --urgent: #BF2A3A;
-  --warn: #9A5B00;
-  --focus: #0A6E8A;
-  --shadow: 0 1px 2px rgba(16, 42, 67, .06), 0 8px 24px rgba(16, 42, 67, .08);
+  --bg: #FFFFFF; --cielo: #EEF6FA; --surface: #FFFFFF; --ink: #17324D; --muted: #5B6F82; --line: #DDE7EE; --line-strong: #C9D8E2;
+  --accent: #0A7A8F; --accent-osc: #075E6E; --accent-ink: #FFFFFF; --accent-soft: #E3F3EC; --accent-soft-ink: #1F7A52;
+  --sol: #FFC94A; --sol-suave: #FFF4D6; --sol-ink: #7A5A00; --menta: #E3F3EC;
+  --field: #EEF6FA; --urgent: #C62E3A; --urgent-suave: #FDE8EA; --warn: #9A6A00; --focus: #0A7A8F;
+  --shadow: 0 12px 32px rgba(23, 50, 77, .10);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0B1622; --surface: #12202E; --ink: #E4ECF3; --muted: #93A6B8; --line: #22344A; --line-strong: #2E4560;
-    --accent: #4FB3CF; --accent-ink: #06202A; --accent-soft: #123447; --head: #081320; --head-ink: #F2F6FA; --head-muted: #8FA6BD;
-    --field: #0E1B28; --urgent: #FF7B8A; --warn: #F2C063; --focus: #4FB3CF;
-    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3); color-scheme: dark;
+    --bg: #0D1B27; --cielo: #132634; --surface: #10212E; --ink: #E6EEF4; --muted: #9DB0C0; --line: #22394B; --line-strong: #2D4A60;
+    --accent: #4FB8CC; --accent-osc: #6CC9DA; --accent-ink: #062029; --accent-soft: #163A32; --accent-soft-ink: #7FD8AE;
+    --sol: #F2BD3F; --sol-suave: #3A3015; --sol-ink: #F5D27A; --menta: #163A32;
+    --field: #132634; --urgent: #FF8792; --urgent-suave: #3D1C22; --warn: #F2C063; --focus: #4FB8CC;
+    --shadow: 0 12px 32px rgba(0, 0, 0, .35); color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0; background: var(--bg); color: var(--ink);
-  font: 400 16px/1.5 "Public Sans", system-ui, sans-serif;
-  font-variant-numeric: tabular-nums;
-}
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 16px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.55 Figtree, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 a { color: var(--accent); }
-:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+:focus-visible { outline: 3px solid var(--sol); outline-offset: 2px; border-radius: 6px; }
 button, input, select { font: inherit; color: inherit; }
+.ancho { max-width: 1440px; margin: 0 auto; padding: 0 32px; }
 
-/* Cabecera */
-.cabecera { background: var(--head); color: var(--head-ink); padding: 28px 24px 72px; }
-.cabecera-in { max-width: 1440px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; }
-h1 { font-size: 30px; line-height: 1.15; font-weight: 700; margin: 0; letter-spacing: -0.015em; }
-.lema { margin: 6px 0 0; color: var(--head-muted); font-size: 15px; }
-.estado-datos { color: var(--head-muted); font-size: 14px; margin: 0; text-align: right; }
-.estado-datos strong { display: block; color: var(--head-ink); font-size: 28px; line-height: 1.1; font-weight: 700; letter-spacing: -0.01em; }
+/* Barra superior */
+.barra-sup { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-top: 18px; padding-bottom: 18px; }
+.marca { font-weight: 800; font-size: 22px; color: var(--ink); text-decoration: none; display: flex; gap: 10px; align-items: center; letter-spacing: -.01em; }
+.marca i { width: 32px; height: 32px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); display: inline-grid; place-items: center; font-style: normal; font-size: 17px; }
+.menu { display: flex; gap: 26px; align-items: center; font-weight: 600; }
+.menu a { color: var(--ink); text-decoration: none; }
+.menu a:hover { color: var(--accent); }
+.menu .boton-sol { background: var(--sol); color: #17324D; padding: 9px 16px; border-radius: 12px; border: 0; cursor: pointer; font-weight: 700; }
 
-/* Estructura */
-.marco { max-width: 1440px; margin: -48px auto 0; padding: 0 24px 24px; position: relative; }
-.filtros {
-  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px 16px; margin-bottom: 24px; box-shadow: var(--shadow);
-  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px 16px; align-items: end;
-}
+/* Bienvenida */
+.hero { background: var(--cielo); border-radius: 28px; padding: 56px 56px 40px; position: relative; overflow: hidden; }
+.hero > * { position: relative; }
+.hero .sol { position: absolute; right: -70px; top: -70px; width: 280px; height: 280px; border-radius: 50%; background: var(--sol); }
+.hero .sol2 { position: absolute; right: 150px; top: 170px; width: 74px; height: 74px; border-radius: 50%; background: var(--menta); }
+.hero h1 { font-size: 48px; line-height: 1.06; letter-spacing: -.025em; margin: 0 0 14px; max-width: 15ch; font-weight: 800; }
+.lema { font-size: 19px; color: var(--muted); margin: 0 0 8px; max-width: 52ch; }
+.estado-datos { margin: 0 0 26px; color: var(--muted); font-size: 15px; }
+.estado-datos strong { color: var(--ink); }
+.busca { display: grid; grid-template-columns: minmax(0, 1fr) 260px auto; background: var(--surface); border-radius: 18px; box-shadow: var(--shadow); padding: 8px; max-width: 920px; }
+.busca input, .busca select { border: 0; font-size: 18px; padding: 14px 18px; background: transparent; color: var(--ink); min-width: 0; width: 100%; height: auto; }
+.busca input:focus, .busca select:focus { outline: none; box-shadow: none; }
+.busca input[type=search], .busca select { border: 0; background: transparent; height: auto; border-radius: 0; box-shadow: none; }
+.busca select { border-left: 1px solid var(--line); }
+.busca:focus-within { box-shadow: 0 0 0 3px var(--sol), var(--shadow); }
+.busca select { border-left: 1px solid var(--line); border-radius: 0; }
+.busca button { border: 0; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 17px; padding: 0 30px; border-radius: 12px; cursor: pointer; }
+.busca button:hover { background: var(--accent-osc); }
+.sectores-tit { margin: 24px 0 10px; font-weight: 600; color: var(--muted); font-size: 15px; }
+.sectores { display: flex; flex-wrap: wrap; gap: 10px; }
+.sector { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 7px 15px; font-weight: 600; font-size: 15px; color: var(--ink); cursor: pointer; }
+.sector:hover { border-color: var(--accent); color: var(--accent); }
+.sector span { color: var(--muted); font-weight: 500; margin-left: 7px; }
+
+/* Filtros */
+.cuerpo { padding-top: 40px; padding-bottom: 20px; }
+.filtros { border: 1px solid var(--line); border-radius: 22px; padding: 22px 24px; margin-bottom: 22px; background: var(--surface);
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; align-items: end; }
 .campo { min-width: 0; }
-.c-cpv, .c-prov, .c-tipo, .c-dias { grid-column: span 3; }
 .c-estado { grid-column: span 9; }
 .c-periodo { grid-column: span 3; }
-.estados { display: flex; flex-wrap: wrap; gap: 8px; }
-.estado-btn {
-  height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface);
-  cursor: pointer; font-size: 14px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 8px;
-}
-.estado-btn small { font-weight: 500; font-size: 12px; color: var(--muted); }
-.estado-btn:hover { border-color: var(--accent); color: var(--ink); }
-.estado-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.estado-btn[aria-pressed="true"] small { color: var(--accent-ink); opacity: .8; }
-.estado-btn::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--g); }
-.estado-btn[aria-pressed="true"]::before { background: var(--accent-ink); }
-select:disabled { opacity: .55; cursor: not-allowed; }
-.c-texto { grid-column: span 6; }
-.c-importe { grid-column: span 3; }
-.c-pie { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+.c-cpv, .c-tipo, .c-importe, .c-dias { grid-column: span 3; }
+.c-checks { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 28px; padding-top: 14px; border-top: 1px solid var(--line); }
+.c-pie { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .c-pie .chips { flex: 1 1 320px; margin: 0; }
 .c-pie .grupo { display: contents; }
-.c-pie .chips.sin-chips::before { content: 'Añade códigos CPV o provincias para acotar la búsqueda.'; color: var(--muted); font-size: 14px; }
-.c-dias .check { margin: 4px 0 0; }
-.c-dias .check:first-child { margin-top: 0; }
-.campo > label, .campo > .etq { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.c-pie .chips.sin-chips::before { content: 'Añade un sector o una provincia para afinar la búsqueda.'; color: var(--muted); font-size: 14px; }
+.campo > label, .campo > .etq { display: block; font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.estados { display: flex; flex-wrap: wrap; gap: 8px; }
+.estado-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 15px; color: var(--ink);
+  cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
+.estado-btn::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--g); }
+.estado-btn small { color: var(--muted); font-weight: 500; font-size: 14px; }
+.estado-btn:hover { border-color: var(--accent); }
+.estado-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.estado-btn[aria-pressed="true"] small { color: var(--bg); opacity: .75; }
+select:disabled { opacity: .55; cursor: not-allowed; }
 input[type=text], input[type=search], input[type=number], input[type=email], select {
-  width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--field);
-}
-input:hover, select:hover { border-color: var(--muted); }
+  width: 100%; height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); }
+input:hover, select:hover { border-color: var(--line-strong); }
 input:focus, select:focus { border-color: var(--accent); background: var(--surface); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
-::placeholder { color: var(--muted); opacity: .8; }
+::placeholder { color: var(--muted); opacity: .85; }
 .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; margin-top: 8px; cursor: pointer; }
-.check input { margin-top: 3px; accent-color: var(--accent); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip {
-  display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer;
-  background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 3px 6px 3px 11px; font-size: 13px; font-weight: 600;
-}
-.chip span[aria-hidden] { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 14px; line-height: 1; }
-.chip:hover span[aria-hidden] { background: var(--accent); color: var(--accent-ink); }
-.limpiar { background: none; border: 0; color: var(--accent); padding: 0; cursor: pointer; font-size: 14px; text-decoration: underline; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 15px; cursor: pointer; }
+.check input { margin-top: 4px; accent-color: var(--accent); width: 16px; height: 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer; background: var(--accent-soft); color: var(--accent-soft-ink);
+  border-radius: 999px; padding: 5px 7px 5px 13px; font-size: 14px; font-weight: 600; }
+.chip span[aria-hidden] { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); font-size: 15px; line-height: 1; }
+.limpiar { background: none; border: 0; color: var(--accent); padding: 0; cursor: pointer; font-size: 14px; font-weight: 600; text-decoration: underline; }
 
 /* Resultados */
-.barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 12px; }
-.recuento { font-size: 18px; margin: 0; }
-.recuento strong { font-weight: 700; }
+.barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 14px; }
+.recuento { font-size: 22px; margin: 0; font-weight: 600; color: var(--muted); }
+.recuento strong { color: var(--ink); font-weight: 800; }
 .acciones { display: flex; gap: 10px; align-items: center; }
-.acciones select { width: auto; height: 38px; background: var(--surface); }
-.boton {
-  height: 38px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--surface); cursor: pointer; font-size: 14px; font-weight: 600;
-}
+.acciones select { width: auto; background: var(--surface); }
+.boton { height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 15px; font-weight: 700; color: var(--ink); }
 .boton:hover { border-color: var(--accent); color: var(--accent); }
 .boton-principal { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.boton-principal:hover { filter: brightness(1.08); color: var(--accent-ink); }
+.boton-principal:hover { background: var(--accent-osc); color: var(--accent-ink); }
+.boton-sol { background: var(--sol); border-color: var(--sol); color: #17324D; display: inline-flex; gap: 8px; align-items: center; }
+.boton-sol:hover { filter: brightness(1.04); color: #17324D; border-color: var(--sol); }
 .boton:disabled { opacity: .5; cursor: default; }
 .boton-filtros { display: none; }
 
-.lista { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
-.lic { display: grid; grid-template-columns: 124px minmax(0, 1fr) auto; gap: 0 24px; padding: 18px 22px; border-top: 1px solid var(--line); border-left: 3px solid transparent; }
-.lic:first-child { border-top: 0; }
-.lic:hover { background: var(--field); border-left-color: var(--accent); }
-.plazo { border-right: 1px solid var(--line); padding-right: 16px; }
-.dias { display: block; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -0.02em; }
-.dias small { font-size: 14px; font-weight: 600; letter-spacing: 0; margin-left: 3px; }
-.cierre { display: block; color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.35; }
-.lic.urgente .dias { color: var(--urgent); }
-.lic.pronto .dias { color: var(--warn); }
-.lic.sinfecha .dias { font-size: 16px; color: var(--muted); font-weight: 600; }
-.titulo { font-size: 16px; font-weight: 600; line-height: 1.35; margin: 0 0 4px; }
+.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.lic { display: grid; grid-template-columns: 132px minmax(0, 1fr) auto; gap: 22px; align-items: center; border: 1px solid var(--line); border-radius: 18px; padding: 18px 22px; background: var(--surface); }
+.lic:hover { border-color: var(--line-strong); }
+.plazo { background: var(--sol-suave); border-radius: 14px; padding: 10px 12px; text-align: center; }
+.dias { display: block; font-size: 24px; line-height: 1.05; font-weight: 800; letter-spacing: -.01em; }
+.dias small { font-size: 16px; font-weight: 700; margin-left: 3px; }
+.cierre { display: block; font-size: 13px; color: var(--sol-ink); margin-top: 3px; line-height: 1.35; }
+.lic.urgente .plazo { background: var(--urgent-suave); }
+.lic.urgente .dias, .lic.urgente .cierre { color: var(--urgent); }
+.lic.lejos .plazo, .lic.sinfecha .plazo, .lic.historico .plazo { background: var(--cielo); }
+.lic.lejos .cierre, .lic.sinfecha .cierre, .lic.historico .cierre { color: var(--muted); }
+.lic.sinfecha .dias { font-size: 17px; }
+.lic.historico .plazo { text-align: left; }
+.nueva { display: inline-block; background: var(--sol); color: #17324D; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 1px 7px; margin-right: 6px; vertical-align: 2px; }
+.titulo { font-size: 17px; font-weight: 700; line-height: 1.35; margin: 0 0 4px; }
 .titulo a { color: var(--ink); text-decoration: none; }
 .titulo a:hover { color: var(--accent); text-decoration: underline; }
-.organo { margin: 0; color: var(--muted); font-size: 14px; }
-.datos { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 0; font-size: 13px; color: var(--muted); }
-.datos b { color: var(--ink); font-weight: 600; }
-.cpv { display: inline-block; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; color: var(--ink); cursor: pointer; font-size: 13px; }
-.cpv:hover { background: var(--accent-soft); color: var(--accent); }
+.organo { margin: 0; color: var(--muted); font-size: 15px; }
+.datos { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 0; font-size: 14px; color: var(--muted); align-items: center; }
+.datos .sector-tag { background: var(--accent-soft); color: var(--accent-soft-ink); font-weight: 700; font-size: 13px; border-radius: 8px; padding: 1px 8px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cpv { display: inline-block; background: var(--cielo); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; color: var(--ink); cursor: pointer; font-size: 13px; }
+.cpv:hover { border-color: var(--accent); color: var(--accent); }
 .importe { text-align: right; white-space: nowrap; }
-.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--g); }
-.badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--g); }
-.lic.historico .cierre { margin-top: 4px; }
-.adj { margin: 8px 0 0; font-size: 14px; }
-.adj b { font-weight: 600; }
-.adj .mas-lotes { color: var(--muted); font-size: 13px; }
+.importe b { display: block; font-size: 19px; font-weight: 800; }
+.importe span { color: var(--muted); font-size: 13px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: var(--g); }
+.badge::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--g); }
+.adj { margin: 8px 0 0; font-size: 15px; }
+.adj b { font-weight: 700; }
+.adj b a { color: var(--accent-soft-ink); }
+.adj .mas-lotes { color: var(--muted); font-size: 14px; }
+.seguir { margin-left: 8px; padding: 0; border: 0; background: none; color: var(--accent); font-size: 14px; font-weight: 700; text-decoration: underline; cursor: pointer; }
 [data-g="A"] { --g: var(--accent); }
 [data-g="P"] { --g: #7A4CC2; }
-[data-g="E"] { --g: var(--warn); }
-[data-g="J"] { --g: #1E7B4F; }
+[data-g="E"] { --g: #C98A00; }
+[data-g="J"] { --g: #1F7A52; }
 [data-g="F"] { --g: #115E3B; }
-[data-g="N"] { --g: #7A8794; }
-@media (prefers-color-scheme: dark) {
-  [data-g="P"] { --g: #B79BEA; } [data-g="J"] { --g: #6FD3A0; } [data-g="F"] { --g: #4FBF8A; } [data-g="N"] { --g: #93A6B8; }
-}
-.importe b { display: block; font-size: 17px; font-weight: 700; }
-.importe span { color: var(--muted); font-size: 12px; }
-
-.mas { display: block; margin: 16px auto 0; }
-.vacio { background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 12px; padding: 36px 24px; text-align: center; }
+[data-g="N"] { --g: #8A97A3; }
+@media (prefers-color-scheme: dark) { [data-g="P"] { --g: #B79BEA; } [data-g="J"] { --g: #6FD3A0; } [data-g="F"] { --g: #4FBF8A; } [data-g="N"] { --g: #93A6B8; } }
+.mas { display: block; margin: 20px auto 0; }
+.vacio { background: var(--cielo); border-radius: 18px; padding: 36px 24px; text-align: center; }
 .vacio p { margin: 0 0 6px; }
-.vacio p:first-child { font-weight: 600; font-size: 17px; }
+.vacio p:first-child { font-weight: 700; font-size: 18px; }
 
-.pie { max-width: 1440px; margin: 0 auto; padding: 8px 24px 40px; color: var(--muted); font-size: 13px; }
-.pie p { margin: 0 0 6px; max-width: 80ch; }
-.legal { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
-.legal a { color: var(--muted); }
-.explorar { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 16px; }
-.explorar a { color: var(--muted); }
+/* Cómo funciona y accesos */
+.como { margin-top: 56px; }
+.como h2, .accesos-tit { font-size: 26px; margin: 0 0 18px; letter-spacing: -.01em; }
+.pasos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.paso { background: var(--cielo); border-radius: 22px; padding: 24px; }
+.paso b { display: block; font-size: 19px; margin-bottom: 4px; }
+.paso p { margin: 0; color: var(--muted); }
+.ico { width: 46px; height: 46px; border-radius: 14px; background: var(--surface); display: grid; place-items: center; margin-bottom: 14px; color: var(--accent); }
+.paso:last-child .ico { background: var(--sol); color: #17324D; }
+.accesos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 56px; }
+.acceso { border: 1px solid var(--line); border-radius: 22px; padding: 24px; text-decoration: none; color: var(--ink); }
+.acceso:hover { border-color: var(--accent); }
+.acceso b { display: block; font-size: 19px; margin-bottom: 6px; }
+.acceso p { margin: 0 0 12px; color: var(--muted); }
+.acceso span { font-weight: 700; color: var(--accent); }
+
+/* Pie */
+.pie { margin-top: 56px; padding-top: 24px; padding-bottom: 40px; color: var(--muted); font-size: 14px; }
+.pie .linea { border-top: 1px solid var(--line); padding-top: 24px; }
+.pie p { margin: 0 0 6px; max-width: 90ch; }
+.explorar, .legal { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 16px; }
+.explorar a, .legal a { color: var(--muted); }
 .explorar a b { color: var(--ink); }
-.legal a:hover { color: var(--accent); }
+.legal { padding-top: 14px; border-top: 1px solid var(--line); }
+.legal a:hover, .explorar a:hover { color: var(--accent); }
 
-@media (max-width: 1100px) and (min-width: 901px) {
-  .c-cpv, .c-prov, .c-tipo, .c-importe, .c-dias { grid-column: span 6; }
+@media (max-width: 1100px) and (min-width: 861px) {
   .c-estado { grid-column: span 12; } .c-periodo { grid-column: span 6; }
-  .c-texto { grid-column: span 12; }
+  .c-cpv, .c-tipo, .c-importe, .c-dias { grid-column: span 6; }
 }
-@media (max-width: 900px) {
-  .marco { margin-top: 0; padding: 16px; }
-  .cabecera { padding: 20px 16px; }
-  h1 { font-size: 24px; }
-  .estado-datos { text-align: left; }
-  .estado-datos strong { display: inline; font-size: inherit; }
-  .filtros { box-shadow: none; }
-  .filtros { display: none; grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 860px) {
+  .ancho { padding: 0 16px; }
+  .menu a:not(.boton-sol) { display: none; }
+  .hero { border-radius: 0; margin: 0 -16px; padding: 32px 18px 28px; }
+  .hero h1 { font-size: 33px; }
+  .lema { font-size: 17px; }
+  .hero .sol { width: 170px; height: 170px; right: -80px; top: -80px; }
+  .hero .sol2 { display: none; }
+  .busca { grid-template-columns: 1fr; }
+  .busca select, .busca input[type=search] + label + select { border-left: 0; border-top: 1px solid var(--line); }
+  .busca button { padding: 14px; }
+  .cuerpo { padding-top: 28px; }
+  .filtros { display: none; grid-template-columns: minmax(0, 1fr); padding: 18px 16px; }
   .filtros.abierto { display: grid; }
-  .filtros > * { grid-column: 1 / -1; }
+  .filtros > * { grid-column: 1 / -1 !important; }
   .boton-filtros { display: inline-block; }
   .acciones { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
   .acciones select { width: 100%; }
-  .boton { white-space: nowrap; }
-  .lic { grid-template-columns: minmax(0, 1fr); padding: 14px 16px; gap: 8px; }
-  .plazo { border-right: 0; padding: 0; display: flex; align-items: baseline; gap: 10px; }
-  .importe { text-align: left; display: flex; align-items: baseline; gap: 6px; }
-  .importe b { display: inline; }
-  .dias { font-size: 22px; }
+  .boton { white-space: nowrap; padding: 0 14px; }
+  .recuento { font-size: 19px; }
+  .lic { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 16px; }
+  .plazo { display: flex; gap: 10px; align-items: baseline; width: max-content; max-width: 100%; text-align: left; flex-wrap: wrap; }
+  .dias { font-size: 20px; }
   .cierre { margin: 0; }
-  .pie { padding: 8px 16px 32px; }
+  .importe { text-align: left; }
+  .importe b { display: inline; margin-right: 6px; }
+  .pasos, .accesos { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .lista { animation: aparecer .25s ease-out; }
-  @keyframes aparecer { from { opacity: .4; } to { opacity: 1; } }
+  .hero .sol { animation: salir .9s cubic-bezier(.2, .7, .2, 1) both; }
+  @keyframes salir { from { transform: translate(40px, -40px) scale(.8); } to { transform: none; } }
 }
-dialog { border: 0; border-radius: 14px; padding: 0; width: min(520px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgba(16, 42, 67, .35); }
-dialog::backdrop { background: rgba(15, 43, 70, .55); }
-#formAlerta { padding: 24px; }
-#formAlerta h2 { margin: 0 0 8px; font-size: 21px; line-height: 1.25; }
+dialog { border: 0; border-radius: 20px; padding: 0; width: min(540px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgba(16, 42, 67, .35); }
+dialog::backdrop { background: rgba(23, 50, 77, .55); }
+#formAlerta { padding: 26px; }
+#formAlerta h2 { margin: 0 0 12px; font-size: 23px; line-height: 1.25; }
 .dlg-ayuda { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
-.dlg-filtros { margin: 0 0 18px; padding: 12px 14px; background: var(--field); border: 1px solid var(--line); border-radius: 8px; font-size: 14px; font-weight: 600; }
+.dlg-filtros { margin: 0 0 18px; padding: 12px 14px; background: var(--cielo); border-radius: 12px; font-size: 15px; font-weight: 600; }
 .dlg-filtros.aviso { color: var(--urgent); font-weight: 500; }
-#formAlerta .etq { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+#formAlerta .etq { display: block; font-weight: 700; font-size: 14px; margin-bottom: 6px; }
 .consentimiento { margin-top: 14px; font-size: 13px; line-height: 1.45; color: var(--muted); }
 .dlg-mensaje { min-height: 1em; margin: 14px 0 0; font-size: 14px; }
 .dlg-mensaje.error { color: var(--urgent); }
 .dlg-mensaje.ok { color: var(--ink); font-size: 15px; }
 .dlg-botones { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .dlg-tipo { display: grid; gap: 8px; margin: 4px 0 16px; }
-.tipo-op { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-size: 14px; line-height: 1.4; }
-.tipo-op:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.tipo-op { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; font-size: 14px; line-height: 1.4; }
+.tipo-op:has(input:checked) { border-color: var(--accent); background: var(--cielo); }
 .tipo-op input { margin-top: 3px; accent-color: var(--accent); }
 .tipo-op b { display: block; font-size: 15px; }
 #bloqueEmpresa { margin-bottom: 16px; }
 #bloqueEmpresa .dlg-ayuda { margin: 8px 0 0; font-size: 13px; }
-.seguir { margin-left: 6px; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
 <body>
 
-<header class="cabecera">
-  <div class="cabecera-in">
-    <div>
-      <h1>LicitaEmpresa</h1>
-      <p class="lema">Licitaciones públicas de toda España: en plazo, adjudicadas y quién las gana. Actualizadas cada día, gratis y sin registro.</p>
-    </div>
-    <p class="estado-datos" id="estadoDatos">Cargando licitaciones…</p>
-  </div>
+<header class="ancho barra-sup">
+  <a class="marca" href="/"><i aria-hidden="true">L</i>LicitaEmpresa</a>
+  <nav class="menu" aria-label="Principal"><a href="/licitaciones/">Provincias</a><a href="/empresas/">Empresas</a><a href="/guias/">Guías</a><button type="button" class="boton-sol" id="alertaCabecera" hidden>Crear alerta</button></nav>
 </header>
 
-<div class="marco">
+<div class="ancho">
+<section class="hero">
+  <div class="sol" aria-hidden="true"></div><div class="sol2" aria-hidden="true"></div>
+  <h1>Encuentra los concursos públicos de tu sector</h1>
+  <p class="lema">Todas las licitaciones de España en un solo sitio, actualizadas cada día. Gratis y sin registro.</p>
+  <p class="estado-datos" id="estadoDatos">Cargando licitaciones…</p>
+  <form class="busca" role="search" id="formBusca">
+    <label class="oculto" for="texto">Qué buscas</label>
+    <input type="search" id="texto" placeholder="Limpieza, obras, catering, un ayuntamiento, una empresa…">
+    <label class="oculto" for="provSelect">Provincia</label>
+    <select id="provSelect"><option value="">Toda España</option></select>
+    <button type="submit">Buscar</button>
+  </form>
+  <p class="sectores-tit" id="sectoresTit" hidden>O empieza por un sector:</p>
+  <div class="sectores" id="sectores"></div>
+</section>
+</div>
+
+<div class="ancho cuerpo" id="resultados">
   <section class="filtros" id="filtros" aria-label="Filtros">
     <div class="campo c-estado">
       <span class="etq" id="etqEstado">Estado</span>
       <div class="estados" id="estados" role="group" aria-labelledby="etqEstado"></div>
     </div>
-
     <div class="campo c-periodo">
       <label for="periodo">Histórico: actualizadas en</label>
       <select id="periodo">
@@ -261,29 +294,16 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
         <option value="6">Los últimos 6 meses</option>
       </select>
     </div>
-
     <div class="campo c-cpv">
-      <label for="cpvEntrada">Código CPV</label>
-      <input type="text" id="cpvEntrada" list="cpvLista" placeholder="Ej.: 553 o hostelería, e Intro" autocomplete="off"
+      <label for="cpvEntrada">Sector o código CPV</label>
+      <input type="text" id="cpvEntrada" list="cpvLista" placeholder="Ej.: 909 o limpieza, e Intro" autocomplete="off"
         title="Escribe un código o un sector y pulsa Intro. «55» incluye todos los códigos que empiezan por 55.">
       <datalist id="cpvLista"></datalist>
     </div>
-
-    <div class="campo c-prov">
-      <label for="provSelect">Provincia</label>
-      <select id="provSelect"><option value="">Añadir provincia o comunidad…</option></select>
-    </div>
-
-    <div class="campo c-texto">
-      <label for="texto">Buscar en título, organismo o empresa</label>
-      <input type="search" id="texto" placeholder="Ej.: comedor, Ayuntamiento de Pamplona, nombre de empresa">
-    </div>
-
     <div class="campo c-tipo">
       <label for="tipo">Tipo de contrato</label>
       <select id="tipo"><option value="">Todos</option></select>
     </div>
-
     <div class="campo c-importe">
       <span class="etq">Presupuesto sin IVA (€)</span>
       <div class="fila2">
@@ -291,22 +311,20 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
         <input type="number" id="maximo" placeholder="Máximo" min="0" step="1000" aria-label="Presupuesto máximo">
       </div>
     </div>
-
     <div class="campo c-dias">
       <label for="dias">En plazo: cierran en</label>
       <select id="dias">
         <option value="">Cualquier plazo</option>
+        <option value="3">3 días o menos</option>
         <option value="7">Los próximos 7 días</option>
         <option value="15">Los próximos 15 días</option>
         <option value="30">Los próximos 30 días</option>
       </select>
     </div>
-
-    <div class="campo c-dias">
+    <div class="c-checks">
       <label class="check"><input type="checkbox" id="incluirEstatal"> Incluir las de ámbito estatal o de varias provincias</label>
       <label class="check"><input type="checkbox" id="ocultarSinFecha"> Ocultar las que no indican fecha de cierre</label>
     </div>
-
     <div class="c-pie">
       <div class="chips" id="chipsActivos"><span id="cpvChips" class="grupo"></span><span id="provChips" class="grupo"></span></div>
       <button type="button" class="limpiar" id="limpiar">Quitar todos los filtros</button>
@@ -320,17 +338,31 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
         <button type="button" class="boton boton-filtros" id="verFiltros" aria-controls="filtros" aria-expanded="false">Filtros</button>
         <label class="oculto" for="orden">Ordenar</label>
         <select id="orden">
+          <option value="recientes">Más recientes</option>
           <option value="cierre">Cierran antes</option>
-          <option value="recientes">Actualizadas recientemente</option>
           <option value="importe">Mayor presupuesto</option>
         </select>
-        <button type="button" class="boton boton-principal" id="crearAlerta" hidden>Crear alerta</button>
+        <button type="button" class="boton boton-sol" id="crearAlerta" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>Crear alerta</button>
       </div>
     </div>
     <ul class="lista" id="lista"></ul>
     <div id="vacio"></div>
     <button type="button" class="boton mas" id="mas" hidden>Mostrar 50 más</button>
   </main>
+
+  <section class="como" aria-labelledby="comoTit">
+    <h2 id="comoTit">Recíbelas cada mañana en tu email</h2>
+    <ol class="pasos">
+      <li class="paso"><div class="ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div><b>Busca lo tuyo</b><p>Elige tu sector, tus provincias y el importe que te interesa.</p></li>
+      <li class="paso"><div class="ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></div><b>Crea una alerta</b><p>Solo con tu email, sin contraseñas. También puedes seguir a tus competidores.</p></li>
+      <li class="paso"><div class="ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div><b>Recibe solo lo nuevo</b><p>Cada mañana, las licitaciones publicadas desde ayer. Gratis.</p></li>
+    </ol>
+  </section>
+  <section class="accesos" aria-label="Más información">
+    <a class="acceso" href="/licitaciones/"><b>Por provincia y sector</b><p>Concursos abiertos y últimas adjudicaciones de tu zona.</p><span>Ver provincias</span></a>
+    <a class="acceso" href="/empresas/"><b>Quién gana los concursos</b><p>Lo que ha ganado cada empresa, a qué organismos y por cuánto.</p><span>Ver empresas</span></a>
+    <a class="acceso" href="/guias/"><b>Guías para empezar</b><p>Cómo presentarse a una licitación, explicado paso a paso.</p><span>Leer las guías</span></a>
+  </section>
 </div>
 
 <dialog id="dlgAlerta" aria-labelledby="dlgTitulo">
@@ -366,7 +398,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
   </form>
 </dialog>
 
-<footer class="pie">
+<footer class="ancho pie"><div class="linea">
   <p>Fuente: Plataforma de Contratación del Sector Público, Ministerio de Hacienda, incluidas las plataformas autonómicas que agrega. Datos reutilizados conforme a su licencia de datos abiertos; la fecha de la última actualización figura arriba.</p>
   <p>Esta web no es oficial. Antes de presentar una oferta, comprueba plazos y pliegos en el anuncio original, que es el que tiene validez. No incluye contratos menores.</p>
   <nav class="explorar" aria-label="Licitaciones por provincia y sector">
@@ -381,13 +413,13 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
   </nav>
   <nav class="legal" aria-label="Información legal">
     <span>© <span id="anio">2026</span> Soluciones Globales Echeyde 360, S.L.U.</span>
-    <a href="anunciate.html">Anúnciate</a>
-    <a href="aviso-legal.html">Aviso legal</a>
-    <a href="privacidad.html">Privacidad</a>
-    <a href="cookies.html">Cookies</a>
+    <a href="/anunciate">Anúnciate</a>
+    <a href="/aviso-legal">Aviso legal</a>
+    <a href="/privacidad">Privacidad</a>
+    <a href="/cookies">Cookies</a>
     <a href="mailto:contacto@licitaempresa.es">contacto@licitaempresa.es</a>
   </nav>
-</footer>
+</div></footer>
 
 <script>
 (() => {
@@ -437,7 +469,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
   let mostrados = 0;
   let turno = 0;
   const POR_PAGINA = 50;
-  const POR_DEFECTO = { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: false, orden: 'cierre', est: ['A'], per: '1' };
+  const POR_DEFECTO = { cpv: [], prov: [], q: '', tipo: '', min: '', max: '', dias: '', sinFecha: false, estatal: false, orden: 'recientes', est: ['A'], per: '1' };
   const f = structuredClone(POR_DEFECTO);
 
   // Fecha y hora actual en Madrid como "YYYY-MM-DDTHH:MM"
@@ -474,7 +506,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     f.prov = (h.get('prov') || '').split(',').filter(Boolean);
     f.q = h.get('q') || ''; f.tipo = h.get('tipo') || ''; f.min = h.get('min') || ''; f.max = h.get('max') || '';
     f.dias = h.get('dias') || ''; f.sinFecha = h.get('sinfecha') === '1'; f.estatal = h.get('estatal') === '1';
-    f.orden = h.get('orden') || 'cierre';
+    f.orden = ['cierre', 'recientes', 'importe'].includes(h.get('orden')) ? h.get('orden') : 'recientes';
     const est = (h.get('est') || '').split(',').filter((g) => NOMBRE_GRUPO[g]);
     f.est = est.length ? est : ['A'];
     f.per = ['1', '3', '6'].includes(h.get('per')) ? h.get('per') : '1';
@@ -488,7 +520,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     for (const k of ['q', 'tipo', 'min', 'max', 'dias']) if (f[k]) h.set(k, f[k]);
     if (f.sinFecha) h.set('sinfecha', '1');
     if (f.estatal) h.set('estatal', '1');
-    if (f.orden !== 'cierre') h.set('orden', f.orden);
+    if (f.orden !== 'recientes') h.set('orden', f.orden);
     const s = h.toString().replace(/%2C/g, ',');
     history.replaceState(null, '', s ? '#' + s : location.pathname + location.search);
   }
@@ -537,7 +569,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
   function prepararControles() {
     $('cpvLista').innerHTML = CPV_SECTORES.map(([c, n]) => `<option value="${c} ${esc(n)}"></option>`).join('');
 
-    let html = '<option value="">Añadir provincia o comunidad…</option>';
+    let html = '<option value="">Toda España</option>';
     for (const [com, provs] of meta.comunidades || []) {
       html += `<optgroup label="${esc(com)}">`;
       if (provs.length > 1) html += `<option value="${provs.join('+')}">${esc(com)} (todas)</option>`;
@@ -563,6 +595,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     $('provChips').innerHTML = f.prov.map((p) =>
       `<button type="button" class="chip" data-prov="${p}" aria-label="Quitar ${esc(meta.provincias?.[p] || p)}">${esc(meta.provincias?.[p] || p)}<span aria-hidden="true">×</span></button>`).join('');
     $('chipsActivos').classList.toggle('sin-chips', !f.cpv.length && !f.prov.length);
+    $('provSelect').options[0].textContent = f.prov.length ? 'Añadir otra provincia…' : 'Toda España';
     $('texto').value = f.q; $('tipo').value = f.tipo; $('minimo').value = f.min; $('maximo').value = f.max;
     $('dias').value = f.dias; $('ocultarSinFecha').checked = f.sinFecha; $('incluirEstatal').checked = f.estatal; $('orden').value = f.orden;
   }
@@ -584,6 +617,19 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
   }
 
   function cambiar() { pintarControles(); escribirURL(); filtrar(); }
+
+  // Accesos rápidos por sector en la bienvenida, con las licitaciones en plazo de cada uno
+  const SECTORES_PORTADA = [['45', 'Obras'], ['85', 'Salud y asistencia social'], ['72', 'Informática'], ['50', 'Mantenimiento'],
+    ['71', 'Ingeniería y arquitectura'], ['909', 'Limpieza'], ['60', 'Transporte'], ['55', 'Hostelería'], ['79', 'Servicios a empresas'], ['90', 'Residuos y medio ambiente']];
+  function pintarSectores() {
+    const items = cargados.get(meta.archivos?.abiertas?.f) || [];
+    const ahora = ahoraMadrid();
+    const vivos = items.filter((x) => x.g === 'A' && (!x.f || x.f >= ahora));
+    const lista = SECTORES_PORTADA.map(([c, n]) => [c, n, vivos.filter((x) => x.c.some((k) => k.startsWith(c))).length]).filter(([, , k]) => k > 0);
+    $('sectores').innerHTML = lista.map(([c, n, k]) => `<button type="button" class="sector" data-c="${c}">${esc(n)}<span>${fmtNum.format(k)}</span></button>`).join('');
+    $('sectoresTit').hidden = !lista.length;
+    if (vivos.length) $('estadoDatos').innerHTML = `Ahora hay <strong>${fmtNum.format(vivos.length)}</strong> licitaciones en plazo · actualizado ${haceCuanto(meta.actualizado)}`;
+  }
 
   function enlazar() {
     $('cpvEntrada').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); añadirCPV(e.target.value); } });
@@ -619,6 +665,18 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     $('incluirEstatal').addEventListener('change', (e) => { f.estatal = e.target.checked; escribirURL(); filtrar(); });
     $('limpiar').addEventListener('click', () => { Object.assign(f, structuredClone(POR_DEFECTO)); cambiar(); });
     $('mas').addEventListener('click', () => pintarMas());
+    $('formBusca').addEventListener('submit', (e) => {
+      e.preventDefault();
+      f.q = $('texto').value.trim(); escribirURL(); filtrar();
+      $('resultados').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
+    $('sectores').addEventListener('click', (e) => {
+      const b = e.target.closest('.sector');
+      if (!b) return;
+      if (!f.cpv.includes(b.dataset.c)) f.cpv.push(b.dataset.c);
+      cambiar();
+      $('resultados').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
     $('verFiltros').addEventListener('click', () => {
       const abierto = $('filtros').classList.toggle('abierto');
       $('verFiltros').setAttribute('aria-expanded', abierto);
@@ -673,7 +731,9 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
         if (ra === 0) return (a._t ?? Infinity) - (b._t ?? Infinity);
         return fechaRef(a) < fechaRef(b) ? 1 : fechaRef(a) > fechaRef(b) ? -1 : 0;
       },
-      recientes: (a, b) => (a.a < b.a ? 1 : a.a > b.a ? -1 : 0),
+      // Las que aparecieron antes en LicitaEmpresa (vt) primero; las del histórico, por su fecha de adjudicación o actualización.
+      recientes: (a, b) => { const ka = a._g === 'A' || a._g === 'P' ? (a.vt || a.fp || a.a || '') : fechaRef(a);
+        const kb = b._g === 'A' || b._g === 'P' ? (b.vt || b.fp || b.a || '') : fechaRef(b); return ka < kb ? 1 : ka > kb ? -1 : 0; },
       importe: (a, b) => (b.i ?? -1) - (a.i ?? -1),
     }[f.orden] || (() => 0);
     resultado.sort(orden);
@@ -711,7 +771,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
       const hora = x.f.slice(11, 16);
       let clase = '', html;
       if (horas < 24) { clase = 'urgente'; html = `<span class="dias">${Math.max(1, Math.ceil(horas))}<small>h</small></span>`; }
-      else { clase = dias <= 3 ? 'urgente' : dias <= 7 ? 'pronto' : ''; html = `<span class="dias">${dias}<small>${dias === 1 ? 'día' : 'días'}</small></span>`; }
+      else { clase = dias <= 3 ? 'urgente' : dias <= 7 ? 'pronto' : dias > 30 ? 'lejos' : ''; html = `<span class="dias">${dias}<small>${dias === 1 ? 'día' : 'días'}</small></span>`; }
       html += `<span class="cierre">Cierra el ${formatoFecha(x.f.slice(0, 10), tAhora)}${hora && hora !== '23:59' ? ', ' + hora : ''}</span>`;
       return { clase, html };
     }
@@ -747,11 +807,16 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     return `/licitacion/${slugCorto(x.t)}-${String(x.id).split('/').pop().replace(/[^0-9A-Za-z]/g, '')}/`;
   }
 
+  const SECTORES_LARGO = [...CPV_SECTORES].sort((a, b) => b[0].length - a[0].length);
+  const sectorDe = (c) => SECTORES_LARGO.find(([p]) => String(c || '').startsWith(p))?.[1];
+  const esNueva = (x) => x._g === 'A' && x.vt && Date.parse(x.vt + ':00Z') > Date.now() - 864e5;
+
   function fila(x, tAhora) {
     const { clase, html } = columnaPlazo(x, tAhora);
     const cpvs = x.c.slice(0, 4).map((c) => `<button type="button" class="cpv" data-c="${c}" title="Filtrar por ${c}">${c}</button>`).join(' ')
       + (x.c.length > 4 ? ` +${x.c.length - 4}` : '');
     const datosFila = [
+      sectorDe(x.c[0]) ? `<span class="sector-tag">${esc(sectorDe(x.c[0]))}</span>` : '',
       `<span>${esc(meta.provincias?.[x.p] || 'Sin especificar')}</span>`,
       x.tc && meta.tipos?.[x.tc] ? `<span>${esc(meta.tipos[x.tc])}</span>` : '',
       x.pr && meta.procedimientos?.[x.pr] ? `<span>${esc(meta.procedimientos[x.pr])}</span>` : '',
@@ -761,7 +826,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
     return `<li class="lic ${clase}">
       <div class="plazo">${html}</div>
       <div>
-        <h3 class="titulo">${(() => { const r = rutaFicha(x);
+        <h3 class="titulo">${esNueva(x) ? '<span class="nueva">Nueva</span>' : ''}${(() => { const r = rutaFicha(x);
           return r ? `<a href="${r}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a>` : `<a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a>`; })()}</h3>
         <p class="organo">${esc(x.o)}</p>
         <p class="datos">${datosFila}</p>
@@ -844,6 +909,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
       if (!d.activas) return;
       alertasActivas = true;
       $('crearAlerta').hidden = false;
+      $('alertaCabecera').hidden = false;
       filtrar(); // para mostrar «Seguir a esta empresa» en las adjudicaciones
       // Desde las páginas por provincia, sector o ficha: los botones de aviso abren el formulario directamente
       const h = new URLSearchParams(location.hash.slice(1));
@@ -857,6 +923,7 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
       }
     }).catch(() => {});
     $('crearAlerta').addEventListener('click', () => abrirAlerta());
+    $('alertaCabecera').addEventListener('click', () => abrirAlerta());
     for (const r of document.querySelectorAll('input[name="tipoAlerta"]')) r.addEventListener('change', modoAlerta);
     $('dlgCerrar').addEventListener('click', () => $('dlgAlerta').close());
     $('formAlerta').addEventListener('submit', enviarAlerta);
@@ -903,13 +970,13 @@ dialog::backdrop { background: rgba(15, 43, 70, .55); }
       return;
     }
     await Promise.all([pideFichas, pideLib]);
-    $('estadoDatos').innerHTML = `<strong>${fmtNum.format(meta.total ?? 0)}</strong> licitaciones en plazo, actualizadas ${haceCuanto(meta.actualizado)}`;
+    $('estadoDatos').innerHTML = `Ahora hay <strong>${fmtNum.format(meta.total ?? 0)}</strong> licitaciones en plazo · actualizado ${haceCuanto(meta.actualizado)}`;
     prepararControles();
     leerURL();
     pintarControles();
     enlazar();
     enlazarAlertas();
-    filtrar();
+    filtrar().then(pintarSectores);
     window.addEventListener('hashchange', () => { leerURL(); pintarControles(); filtrar(); });
   }
   try { $('anio').textContent = new Date().getFullYear(); } catch (e) {}
