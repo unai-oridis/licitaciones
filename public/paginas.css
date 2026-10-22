@@ -167,3 +167,10 @@ h2 { font-size: 24px; margin: 40px 0 14px; letter-spacing: -.01em; }
 .organo a, .intro a { color: inherit; }
 .organo a:hover, .intro a:hover { color: var(--accent); }
 h2 .cuenta { color: var(--muted); font-weight: 600; font-size: 17px; margin-left: 6px; }
+.guia table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 15px; margin: 8px 0 18px; }
+.guia th, .guia td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--line); }
+.guia thead th { background: var(--cielo); border-top: 0; font-size: 14px; }
+.guia tbody tr:first-child td { background: var(--sol-suave); }
+.respuesta { max-width: 76ch; font-size: 18px; line-height: 1.7; }
+.respuesta p { margin: 0 0 14px; }
+@media (max-width: 860px) { .guia table { font-size: 14px; } .guia th, .guia td { padding: 8px 10px; } .respuesta { font-size: 16px; } }

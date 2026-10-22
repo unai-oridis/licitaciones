@@ -10,6 +10,7 @@
 //   /guias/ y /guias/{guia}/               guías para empresas (lib/guias.mjs)
 //   /organismos/                           organismos que más licitan
 //   /licitaciones/oficio/{oficio}/         por oficio (electricista, fontanería…; lib/oficios.mjs)
+//   /preguntas/ y /preguntas/{pregunta}/  preguntas frecuentes (lib/preguntas.mjs)
 //   /hoy/ y /hoy/{AAAA-MM-DD}/             licitaciones aparecidas en las últimas 24 horas y archivo de los últimos días
 // Las páginas de cada organismo (/organismo/{slug}) tampoco son archivos: functions/organismo/[slug].js.
 //   /js/                                   copia de lib/fichas.mjs y lib/empresas.mjs para el buscador
@@ -26,6 +27,7 @@ import { agruparEmpresas, tienePagina, rutaEmpresa } from '../lib/empresas.mjs';
 import { GUIAS } from '../lib/guias.mjs';
 import { agruparOrganismos, slugOrganismo, rutaOrganismo } from '../lib/organismos.mjs';
 import { OFICIOS, enOficio } from '../lib/oficios.mjs';
+import { PREGUNTAS } from '../lib/preguntas.mjs';
 
 const RAIZ = process.env.DIR_PUBLICO || 'public';
 const DIR_DATOS = path.join(RAIZ, 'data');
@@ -193,6 +195,7 @@ async function main() {
   await fs.rm(path.join(RAIZ, 'guias'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'organismos'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'hoy'), { recursive: true, force: true });
+  await fs.rm(path.join(RAIZ, 'preguntas'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'js'), { recursive: true, force: true });
 
   const codProv = Object.keys(provincias).filter((p) => p !== '00' && p !== '99').sort((a, b) => provincias[a].localeCompare(provincias[b], 'es'));
@@ -227,7 +230,7 @@ async function main() {
   const comunidades = (meta.comunidades || []).filter(([, provs]) => provs.length > 1);
   const paginasListado = codProv.length + comunidades.length + combos.size + 2 + 3 // + /empresas/, sitemaps
     + 3 // /organismos/, su sitemap y /js/organismos.mjs
-    + OFICIOS.length + 1 + DIAS_ARCHIVO + 1
+    + OFICIOS.length + 1 + DIAS_ARCHIVO + 1 + PREGUNTAS.length + 1
     + GUIAS.length + 1
     + 2 // archivos en /js/
     + sectores.filter((s) => abPorSector.get(s.c).length || adjPorSector.get(s.c).length).length;
@@ -605,7 +608,7 @@ async function main() {
     migas: [['Inicio', '/'], ['Guías', '/guias/']],
     cuerpo: `
   <h1>Guías para presentarse a licitaciones públicas</h1>
-  <p class="intro">Todo lo que necesita saber una empresa o un autónomo para empezar a vender a la Administración, explicado de forma sencilla.</p>
+  <p class="intro">Todo lo que necesita saber una empresa o un autónomo para empezar a vender a la Administración, explicado de forma sencilla. ¿Tienes una duda concreta? Mira las <a href="/preguntas/">preguntas frecuentes</a>.</p>
   ${listaGuias}`,
     pieDatos: 'Guías informativas. No constituyen asesoramiento jurídico: en cada licitación mandan sus pliegos.',
   }), sitemap, '0.8');
@@ -626,6 +629,43 @@ async function main() {
   <div class="grupos">${porProvOrg}</div>
   ${enlacesRelacionados('Ranking por número de licitaciones', rankingOrg)}`,
     actualizado,
+  }), sitemap, '0.7');
+
+  // --- Preguntas frecuentes
+  const titGuia = new Map(GUIAS.map((g) => [g.slug, g.titulo]));
+  const textoPlano = (h) => h.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  for (const [i, [s, pregunta, respuesta, guia]] of PREGUNTAS.entries()) {
+    const ruta = `/preguntas/${s}/`;
+    const otras = [...PREGUNTAS.slice(i + 1), ...PREGUNTAS.slice(0, i)].filter((q) => q[3] === guia).concat(
+      [...PREGUNTAS.slice(i + 1), ...PREGUNTAS.slice(0, i)].filter((q) => q[3] !== guia)).slice(0, 6);
+    await escribir(ruta, pagina({
+      ruta, titulo: pregunta, descripcion: textoPlano(respuesta).slice(0, 160),
+      migas: [['Inicio', '/'], ['Preguntas', '/preguntas/'], [pregunta.length > 50 ? pregunta.slice(0, 48) + '…' : pregunta, ruta]],
+      cuerpo: `
+  <h1>${esc(pregunta)}</h1>
+  <div class="respuesta">${respuesta}</div>
+  ${titGuia.has(guia) ? `<p class="volver"><a class="boton" href="/guias/${guia}/">Leer la guía completa: ${esc(titGuia.get(guia))}</a></p>` : ''}
+  <section class="resumen guia-cta">
+    <div><b>${numero.format(abiertas.length)}</b><span>licitaciones abiertas ahora</span></div>
+    <div><b>Gratis</b><span>sin registro</span></div>
+    <div class="acciones"><a class="boton principal" href="/">Buscar licitaciones</a><a class="boton" href="/#alerta=1">Crear una alerta por email</a></div>
+  </section>
+  <h2>Otras preguntas</h2>
+  <ul class="enlaces guias">${otras.map((q) => `<li><a href="/preguntas/${q[0]}/">${esc(q[1])}</a></li>`).join('')}</ul>`,
+      ldExtra: { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: [{ '@type': 'Question', name: pregunta,
+        acceptedAnswer: { '@type': 'Answer', text: textoPlano(respuesta) } }] },
+      pieDatos: 'Respuesta informativa elaborada por LicitaEmpresa a partir de la Ley 9/2017 de Contratos del Sector Público. Los importes son orientativos: en cada licitación mandan sus pliegos. No constituye asesoramiento jurídico.',
+    }), sitemap, '0.6');
+  }
+  await escribir('/preguntas/', pagina({
+    ruta: '/preguntas/', titulo: 'Preguntas frecuentes sobre licitaciones públicas',
+    descripcion: 'Respuestas cortas a las dudas más habituales sobre licitaciones públicas: autónomos, contratos menores, garantías, ROLECE, DEUC, plazos, recursos y más.',
+    migas: [['Inicio', '/'], ['Preguntas', '/preguntas/']],
+    cuerpo: `
+  <h1>Preguntas frecuentes sobre licitaciones públicas</h1>
+  <p class="intro">Respuestas cortas a las dudas más habituales. Si quieres el detalle, cada una enlaza a su <a href="/guias/">guía</a>.</p>
+  <ul class="guias-lista">${PREGUNTAS.map(([s, q, r]) => `<li><a href="/preguntas/${s}/">${esc(q)}</a><p>${esc(textoPlano(r).slice(0, 140))}…</p></li>`).join('')}</ul>`,
+    pieDatos: 'Respuestas informativas. No constituyen asesoramiento jurídico: en cada licitación mandan sus pliegos.',
   }), sitemap, '0.7');
 
   // --- Código compartido para el buscador (enlaces a fichas y empresas)
