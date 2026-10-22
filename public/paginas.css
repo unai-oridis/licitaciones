@@ -164,3 +164,5 @@ h2 { font-size: 24px; margin: 40px 0 14px; letter-spacing: -.01em; }
 .guias-lista a { font-weight: 700; font-size: 18px; text-decoration: none; color: var(--ink); }
 .guias-lista a:hover { color: var(--accent); }
 .guias-lista p { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
+.organo a, .intro a { color: inherit; }
+.organo a:hover, .intro a:hover { color: var(--accent); }

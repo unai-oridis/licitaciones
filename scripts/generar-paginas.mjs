@@ -8,6 +8,8 @@
 //   /licitacion/fichas.json                qué licitaciones tienen ficha (lo usa el buscador)
 //   /empresas/                             empresas que más adjudicaciones ganan
 //   /guias/ y /guias/{guia}/               guías para empresas (lib/guias.mjs)
+//   /organismos/                           organismos que más licitan
+// Las páginas de cada organismo (/organismo/{slug}) tampoco son archivos: functions/organismo/[slug].js.
 //   /js/                                   copia de lib/fichas.mjs y lib/empresas.mjs para el buscador
 //   /sitemap.xml                           índice de sitemaps (páginas y empresas)
 // Las páginas de cada empresa (/empresa/{slug}) no son archivos: las monta functions/empresa/[slug].js.
@@ -20,6 +22,7 @@ import { slug, rutaFicha } from '../lib/fichas.mjs';
 import { pagina, esc, SITIO } from '../lib/plantilla.mjs';
 import { agruparEmpresas, tienePagina, rutaEmpresa } from '../lib/empresas.mjs';
 import { GUIAS } from '../lib/guias.mjs';
+import { agruparOrganismos, slugOrganismo, rutaOrganismo } from '../lib/organismos.mjs';
 
 const RAIZ = process.env.DIR_PUBLICO || 'public';
 const DIR_DATOS = path.join(RAIZ, 'data');
@@ -74,7 +77,7 @@ async function cargar() {
   abiertas.sort((a, b) => (a.f || '9999') < (b.f || '9999') ? -1 : 1);
   // Candidatas a ficha propia: todas las abiertas o en anuncio previo (aunque el plazo haya vencido hace poco)
   const vivas = todas.filter((x) => x.g === 'A' || x.g === 'P');
-  return { meta, abiertas, adjudicadas, vivas };
+  return { meta, abiertas, adjudicadas, vivas, todas };
 }
 
 // ---------- fichas de licitación ----------
@@ -90,6 +93,7 @@ async function contarArchivos(dir) {
 // ---------- plantilla HTML ----------
 
 let tieneFicha = () => false;
+let nombreOrgano = (o) => esc(o);
 const nombreEmpresa = (n) => (tienePagina(n) ? `<a href="${rutaEmpresa(n)}">${esc(n)}</a>` : esc(n));
 const nombreCorto = (n) => (n.length > 40 ? n.slice(0, 38).replace(/\s+\S*$/, '') + '…' : n);
 function enlaceTitulo(x) {
@@ -111,7 +115,7 @@ function filaAbierta(x, provincias) {
   <div class="plazo">${plazo}</div>
   <div class="cuerpo">
     <h3>${enlaceTitulo(x)}</h3>
-    <p class="organo">${esc(x.o)}</p>
+    <p class="organo">${nombreOrgano(x.o)}</p>
     <p class="datos"><span>${esc(provincias[x.p] || '')}</span>${x.c?.length ? `<span>CPV ${esc(x.c.slice(0, 3).join(', '))}</span>` : ''}</p>
   </div>
   <div class="importe">${x.i ? `<b>${euros.format(x.i)}</b><span>sin IVA</span>` : '<span>Importe no indicado</span>'}</div>
@@ -123,7 +127,7 @@ function filaAdjudicada(x, provincias) {
   const mas = (x.nad || x.ad.length) - 1;
   return `<li class="adj">
   <h3>${enlaceTitulo(x)}</h3>
-  <p class="organo">${esc(x.o)} · ${esc(provincias[x.p] || '')} · ${fechaCorta(x.fa)}</p>
+  <p class="organo">${nombreOrgano(x.o)} · ${esc(provincias[x.p] || '')} · ${fechaCorta(x.fa)}</p>
   <p class="ganador">Adjudicada a <b>${nombreEmpresa(empresa)}</b>${importe ? ` por ${euros.format(importe)}` : ''}${ofertas ? `, ${ofertas} ${ofertas === 1 ? 'oferta' : 'ofertas'}` : ''}${mas > 0 ? ` y ${mas} ${mas === 1 ? 'lote más' : 'lotes más'}` : ''}</p>
 </li>`;
 }
@@ -169,7 +173,9 @@ async function escribir(ruta, html, sitemap, prioridad = '0.6', lastmod) {
 
 async function main() {
   const t0 = Date.now();
-  const { meta, abiertas, adjudicadas, vivas } = await cargar();
+  const { meta, abiertas, adjudicadas, vivas, todas } = await cargar();
+  const organismos = agruparOrganismos(todas);
+  nombreOrgano = (o) => (organismos.has(slugOrganismo(o)) ? `<a href="${rutaOrganismo(o)}">${esc(o)}</a>` : esc(o));
   const empresas = agruparEmpresas(adjudicadas);
   const provincias = meta.provincias || {};
   const actualizado = fechaHora.format(new Date(meta.actualizado));
@@ -180,6 +186,7 @@ async function main() {
   await fs.rm(path.join(RAIZ, 'licitacion'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'empresas'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'guias'), { recursive: true, force: true });
+  await fs.rm(path.join(RAIZ, 'organismos'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'js'), { recursive: true, force: true });
 
   const codProv = Object.keys(provincias).filter((p) => p !== '00' && p !== '99').sort((a, b) => provincias[a].localeCompare(provincias[b], 'es'));
@@ -213,6 +220,7 @@ async function main() {
   // --- Qué licitaciones tienen ficha propia (sin pasar del límite de archivos)
   const comunidades = (meta.comunidades || []).filter(([, provs]) => provs.length > 1);
   const paginasListado = codProv.length + comunidades.length + combos.size + 2 + 3 // + /empresas/, sitemaps
+    + 3 // /organismos/, su sitemap y /js/organismos.mjs
     + GUIAS.length + 1
     + 2 // archivos en /js/
     + sectores.filter((s) => abPorSector.get(s.c).length || adjPorSector.get(s.c).length).length;
@@ -245,6 +253,9 @@ async function main() {
   };
   // adj compacto: [id, t, o, p, c, i, of, lo, fa, u, g]
   const empresasPorProv = new Map(codProv.map((p) => [p, topEmpresas((a) => a[3] === p)]));
+  const organismosPorProv = new Map(codProv.map((p) => [p, []]));
+  for (const [s, o] of organismos) organismosPorProv.get(o.p)?.push([o.nombre, `/organismo/${s}`, o.n]);
+  for (const l of organismosPorProv.values()) l.sort((a, b) => b[2] - a[2]).splice(12);
   const empresasPorSector = new Map(sectores.map((s) => [s.c, topEmpresas((a) => String(a[4]).startsWith(s.c))]));
 
   // --- Provincias
@@ -260,6 +271,7 @@ async function main() {
   <p class="intro">Concursos y contratos públicos de ayuntamientos, diputaciones, gobierno autonómico y organismos del Estado en ${esc(nombre)}, con su plazo de presentación, presupuesto y enlace al anuncio oficial. Se actualiza varias veces al día.</p>
   ${bloqueLista({ abiertas: ab, adjudicadas: adjPorProv.get(p), provincias, frase: `en ${nombre}`, buscador: enlaceBuscador({ prov: [p] }) })}
   ${enlacesRelacionados(`Licitaciones por sector en ${nombre}`, sectoresAqui)}
+  ${enlacesRelacionados(`Organismos que más licitan en ${nombre}`, organismosPorProv.get(p))}
   ${enlacesRelacionados(`Empresas que más adjudicaciones ganan en ${nombre}`, empresasPorProv.get(p))}`;
     await escribir(rutaProv(p), pagina({
       ruta: rutaProv(p),
@@ -377,7 +389,7 @@ async function main() {
   ${tienePagina(x.ad[0][0]) ? `<p class="aviso-empresa"><a class="boton" href="${rutaEmpresa(x.ad[0][0])}">Ver todo lo que ha ganado ${esc(nombreCorto(x.ad[0][0]))}</a> <a class="boton" href="/#alerta=empresa&emp=${encodeURIComponent(x.ad[0][0]).replace(/%20/g, '+')}">Avisarme cuando gane otra licitación</a></p>` : ''}` : '';
 
     const datos = [
-      ['Organismo', esc(x.o)],
+      ['Organismo', nombreOrgano(x.o)],
       ['Expediente', esc(x.e)],
       ['Tipo de contrato', esc(tipos[x.tc] || '')],
       ['Procedimiento', esc(procs[x.pr] || '')],
@@ -406,7 +418,7 @@ async function main() {
     const cuerpo = `
   <p class="estado"><span class="badge" data-g="${adjudicada ? x.g : vencida ? 'E' : x.g}">${estado}</span></p>
   <h1 class="titulo-ficha">${esc(titulo)}</h1>
-  <p class="intro">${esc(x.o)}${nombreProv ? ` · ${esc(nombreProv)}` : ''}</p>
+  <p class="intro">${nombreOrgano(x.o)}${nombreProv ? ` · ${esc(nombreProv)}` : ''}</p>
   <section class="resumen ficha">
     <div><b>${x.i ? euros.format(x.i) : '—'}</b><span>presupuesto sin IVA</span></div>
     <div><b class="plazo-ficha">${adjudicada ? esc(fechaTexto(x.fa)) : esc(plazo)}</b><span>${adjudicada ? 'fecha de adjudicación' : x.g === 'P' ? 'fecha prevista' : 'fin del plazo de presentación'}</span></div>
@@ -499,14 +511,33 @@ async function main() {
     pieDatos: 'Guías informativas. No constituyen asesoramiento jurídico: en cada licitación mandan sus pliegos.',
   }), sitemap, '0.8');
 
+  // --- Índice de organismos /organismos/
+  const rankingOrg = [...organismos].sort((a, b) => b[1].n - a[1].n).slice(0, 500).map(([s, o]) => [o.nombre, `/organismo/${s}`, o.n]);
+  const porProvOrg = codProv.filter((p) => organismosPorProv.get(p).length)
+    .map((p) => `<div class="grupo"><h3><a href="${rutaProv(p)}">${esc(provincias[p])}</a></h3><ul>${organismosPorProv.get(p).slice(0, 5)
+      .map(([n, r, k]) => `<li><a href="${r}">${esc(n)}</a> <span>${numero.format(k)}</span></li>`).join('')}</ul></div>`).join('');
+  await escribir('/organismos/', pagina({
+    ruta: '/organismos/', titulo: 'Organismos que más licitan: ayuntamientos y administraciones',
+    descripcion: `Ayuntamientos, diputaciones, hospitales y organismos públicos con más licitaciones en España. Consulta sus concursos abiertos, a quién adjudican y por cuánto.`,
+    migas: [['Inicio', '/'], ['Organismos', '/organismos/']],
+    cuerpo: `
+  <h1>Organismos que más licitan</h1>
+  <p class="intro">${numero.format(organismos.size)} ayuntamientos, diputaciones, hospitales, universidades y otros organismos públicos con licitaciones en los últimos 6 meses. Entra en cada uno para ver sus concursos abiertos y a quién adjudica sus contratos.</p>
+  <h2>Por provincia</h2>
+  <div class="grupos">${porProvOrg}</div>
+  ${enlacesRelacionados('Ranking por número de licitaciones', rankingOrg)}`,
+    actualizado,
+  }), sitemap, '0.7');
+
   // --- Código compartido para el buscador (enlaces a fichas y empresas)
   await fs.mkdir(path.join(RAIZ, 'js'), { recursive: true });
-  for (const f of ['fichas.mjs', 'empresas.mjs']) await fs.copyFile(new URL(`../lib/${f}`, import.meta.url), path.join(RAIZ, 'js', f));
+  for (const f of ['fichas.mjs', 'empresas.mjs', 'organismos.mjs']) await fs.copyFile(new URL(`../lib/${f}`, import.meta.url), path.join(RAIZ, 'js', f));
 
   // --- sitemaps (máximo 50.000 direcciones por archivo)
   const hoy = AHORA.toISOString().slice(0, 10);
   const urls = [['/', '1.0'], ...sitemap, ['/anunciate', '0.3'], ['/aviso-legal', '0.2'], ['/privacidad', '0.2'], ['/cookies', '0.2']];
   const urlsEmpresas = [...empresas.keys()].sort().map((s) => [`/empresa/${s}`, '0.4']);
+  const urlsOrganismos = [...organismos.keys()].sort().map((s) => [`/organismo/${s}`, '0.5']);
   const xml = (lista) => `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${lista.map(([r, pr, lm]) => `  <url><loc>${SITIO}${encodeURI(r)}</loc><lastmod>${/^\d{4}-\d{2}-\d{2}/.test(lm || '') ? lm.slice(0, 10) : hoy}</lastmod><priority>${pr}</priority></url>`).join('\n')}
@@ -514,6 +545,7 @@ ${lista.map(([r, pr, lm]) => `  <url><loc>${SITIO}${encodeURI(r)}</loc><lastmod>
 `;
   const archivos = [['sitemap-paginas.xml', urls]];
   for (let i = 0; i < urlsEmpresas.length; i += 45000) archivos.push([`sitemap-empresas-${i / 45000 + 1}.xml`, urlsEmpresas.slice(i, i + 45000)]);
+  for (let i = 0; i < urlsOrganismos.length; i += 45000) archivos.push([`sitemap-organismos-${i / 45000 + 1}.xml`, urlsOrganismos.slice(i, i + 45000)]);
   for (const [f, lista] of archivos) await fs.writeFile(path.join(RAIZ, f), xml(lista));
   await fs.writeFile(path.join(RAIZ, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -521,7 +553,7 @@ ${archivos.map(([f]) => `  <sitemap><loc>${SITIO}/${f}</loc><lastmod>${hoy}</las
 </sitemapindex>
 `);
 
-  console.log(`Páginas generadas: ${sitemap.length} (${codProv.length} provincias, ${comunidades.length} comunidades, ${combos.size} sector+provincia, ${fichas.length} fichas de licitación; adjudicaciones desde ${adjDesde}; ${empresas.size} empresas en el sitemap) en ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  console.log(`Páginas generadas: ${sitemap.length} (${codProv.length} provincias, ${comunidades.length} comunidades, ${combos.size} sector+provincia, ${fichas.length} fichas de licitación; adjudicaciones desde ${adjDesde}; ${empresas.size} empresas y ${organismos.size} organismos en el sitemap) en ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

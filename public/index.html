@@ -144,6 +144,8 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 .titulo a { color: var(--ink); text-decoration: none; }
 .titulo a:hover { color: var(--accent); text-decoration: underline; }
 .organo { margin: 0; color: var(--muted); font-size: 15px; }
+.organo a { color: var(--muted); text-decoration: none; }
+.organo a:hover { color: var(--accent); text-decoration: underline; }
 .datos { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 0; font-size: 14px; color: var(--muted); align-items: center; }
 .datos .sector-tag { background: var(--accent-soft); color: var(--accent-soft-ink); font-weight: 700; font-size: 13px; border-radius: 8px; padding: 1px 8px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cpv { display: inline-block; background: var(--cielo); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; color: var(--ink); cursor: pointer; font-size: 13px; }
@@ -259,7 +261,7 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
 
 <header class="ancho barra-sup">
   <a class="marca" href="/"><i aria-hidden="true">L</i>LicitaEmpresa</a>
-  <nav class="menu" aria-label="Principal"><a href="/licitaciones/">Provincias</a><a href="/empresas/">Empresas</a><a href="/guias/">Guías</a><button type="button" class="boton-sol" id="alertaCabecera" hidden>Crear alerta</button></nav>
+  <nav class="menu" aria-label="Principal"><a href="/licitaciones/">Provincias</a><a href="/empresas/">Empresas</a><a href="/organismos/">Organismos</a><a href="/guias/">Guías</a><button type="button" class="boton-sol" id="alertaCabecera" hidden>Crear alerta</button></nav>
 </header>
 
 <div class="ancho">
@@ -404,6 +406,7 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
   <nav class="explorar" aria-label="Licitaciones por provincia y sector">
     <a href="/licitaciones/"><b>Licitaciones por provincia y sector</b></a>
     <a href="/empresas/"><b>Empresas que más ganan</b></a>
+    <a href="/organismos/"><b>Organismos que más licitan</b></a>
     <a href="/guias/"><b>Guías para licitar</b></a>
     <a href="/licitaciones/madrid/">Madrid</a><a href="/licitaciones/barcelona/">Barcelona</a><a href="/licitaciones/valencia/">Valencia</a>
     <a href="/licitaciones/sevilla/">Sevilla</a><a href="/licitaciones/bizkaia/">Bizkaia</a><a href="/licitaciones/gipuzkoa/">Gipuzkoa</a>
@@ -461,7 +464,8 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
 
   let meta = {};
   let alertasActivas = false;
-  let libEmpresas = null; // /js/empresas.mjs (lo copia scripts/generar-paginas.mjs al publicar)
+  let libEmpresas = null;
+  let libOrganismos = null; // /js/organismos.mjs // /js/empresas.mjs (lo copia scripts/generar-paginas.mjs al publicar)
   let fichas = null; // qué licitaciones tienen página propia (lo genera scripts/generar-paginas.mjs)
   const cargados = new Map(); // archivo -> items
   let todos = [];
@@ -828,7 +832,7 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
       <div>
         <h3 class="titulo">${esNueva(x) ? '<span class="nueva">Nueva</span>' : ''}${(() => { const r = rutaFicha(x);
           return r ? `<a href="${r}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a>` : `<a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t || 'Sin título')}</a>`; })()}</h3>
-        <p class="organo">${esc(x.o)}</p>
+        <p class="organo">${libOrganismos ? `<a href="${libOrganismos.rutaOrganismo(x.o)}" target="_blank" rel="noopener">${esc(x.o)}</a>` : esc(x.o)}</p>
         <p class="datos">${datosFila}</p>
         ${lineaAdjudicacion(x)}
       </div>
@@ -939,7 +943,10 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
   }
 
   async function iniciar() {
-    const pideLib = import('/js/empresas.mjs').then((m) => { libEmpresas = m; }).catch(() => {});
+    const pideLib = Promise.all([
+      import('/js/empresas.mjs').then((m) => { libEmpresas = m; }).catch(() => {}),
+      import('/js/organismos.mjs').then((m) => { libOrganismos = m; }).catch(() => {}),
+    ]);
     const pideFichas = fetch('/licitacion/fichas.json', { cache: 'no-cache' })
       .then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.adjDesde) fichas = d; }).catch(() => {});
     try {

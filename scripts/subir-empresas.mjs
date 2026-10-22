@@ -1,6 +1,7 @@
-// Sube a la base de datos D1 de Cloudflare los datos de cada empresa adjudicataria,
-// para las páginas /empresa/{slug} (las muestra functions/empresa/[slug].js).
-// Solo escribe las empresas que han cambiado, para no pasar del límite gratuito de escrituras de D1.
+// Sube a la base de datos D1 de Cloudflare los datos de las páginas que se montan al visitarlas:
+//   tabla «empresas»   → /empresa/{slug}   (functions/empresa/[slug].js)
+//   tabla «organismos» → /organismo/{slug} (functions/organismo/[slug].js)
+// Solo escribe las filas que han cambiado, para no pasar del límite gratuito de escrituras de D1.
 //
 // Variables de entorno (secretos de GitHub): CF_ACCOUNT_ID, CF_D1_ID, CF_API_TOKEN
 
@@ -8,10 +9,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { agruparEmpresas } from '../lib/empresas.mjs';
+import { agruparOrganismos } from '../lib/organismos.mjs';
 
 const DIR_DATOS = process.env.DIR_DATOS || 'public/data';
 const MAX_ESCRITURAS = Number(process.env.MAX_ESCRITURAS || 40000); // D1 gratis: 100.000 filas escritas al día
-const FILAS_POR_CONSULTA = 14; // 7 valores por fila; D1 admite 100 por consulta
 const EN_PARALELO = 6;
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
@@ -35,55 +36,72 @@ async function enParalelo(tareas, n) {
   await Promise.all(Array.from({ length: n }, async () => { while (i < tareas.length) await tareas[i++](); }));
 }
 
+const hash = (texto) => crypto.createHash('sha1').update(texto).digest('base64').slice(0, 12);
+
+// filas: [[slug, nombre, n, total, datosJSON]] ordenadas por importancia; devuelve cuántas se escribieron
+async function sincronizar(tabla, filas, cupo) {
+  await d1(`CREATE TABLE IF NOT EXISTS ${tabla} (
+    slug TEXT PRIMARY KEY, nombre TEXT NOT NULL, n INTEGER NOT NULL, total INTEGER NOT NULL,
+    ${tabla === 'empresas' ? 'adj' : 'datos'} TEXT NOT NULL, h TEXT NOT NULL, actualizado TEXT NOT NULL)`);
+  const col = tabla === 'empresas' ? 'adj' : 'datos';
+  const existentes = new Map((await d1(`SELECT slug, h FROM ${tabla}`)).map((r) => [r.slug, r.h]));
+  const ahora = new Date().toISOString().slice(0, 16);
+  const nuevas = new Set(filas.map((f) => f[0]));
+  const cambiadas = [];
+  for (const [s, nombre, n, total, datos] of filas) {
+    const h = hash(`${nombre}|${n}|${total}|${datos}`);
+    if (existentes.get(s) !== h) cambiadas.push([s, nombre, n, total, datos, h, ahora]);
+  }
+  const borrar = [...existentes.keys()].filter((s) => !nuevas.has(s));
+  const aEscribir = cambiadas.slice(0, Math.max(0, cupo - borrar.length));
+  log(`${tabla}: ${filas.length} en total, ${cambiadas.length} nuevas o cambiadas, ${borrar.length} para borrar`
+    + (aEscribir.length < cambiadas.length ? ` (ahora se escriben ${aEscribir.length}; el resto, en la próxima actualización)` : ''));
+
+  // 7 valores por fila; D1 admite 100 por consulta → 14 filas por consulta (o menos si son muy grandes)
+  const tareas = [];
+  let lote = [], bytes = 0;
+  const cerrar = () => {
+    if (!lote.length) return;
+    const l = lote; lote = []; bytes = 0;
+    tareas.push(() => d1(
+      `INSERT INTO ${tabla} (slug, nombre, n, total, ${col}, h, actualizado) VALUES ${l.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}
+       ON CONFLICT(slug) DO UPDATE SET nombre = excluded.nombre, n = excluded.n, total = excluded.total,
+       ${col} = excluded.${col}, h = excluded.h, actualizado = excluded.actualizado`, l.flat()));
+  };
+  for (const f of aEscribir) {
+    if (lote.length >= 14 || bytes + f[4].length > 600000) cerrar();
+    lote.push(f); bytes += f[4].length;
+  }
+  cerrar();
+  for (let i = 0; i < borrar.length; i += 90) {
+    const b = borrar.slice(i, i + 90);
+    tareas.push(() => d1(`DELETE FROM ${tabla} WHERE slug IN (${b.map(() => '?').join(', ')})`, b));
+  }
+  let hechas = 0;
+  await enParalelo(tareas.map((t) => async () => { await t(); if (++hechas % 200 === 0) log(`  ${tabla}: ${hechas}/${tareas.length} lotes`); }), EN_PARALELO);
+  log(`  ${tabla}: listo (${aEscribir.length} escritas, ${borrar.length} borradas)`);
+  return aEscribir.length + borrar.length;
+}
+
 async function main() {
   if (!process.env.CF_ACCOUNT_ID || !process.env.CF_D1_ID || !process.env.CF_API_TOKEN) {
-    log('Faltan los secretos de Cloudflare. No se suben las empresas.');
+    log('Faltan los secretos de Cloudflare. No se suben empresas ni organismos.');
     return;
   }
   const indice = JSON.parse(await fs.readFile(path.join(DIR_DATOS, 'indice.json'), 'utf8'));
-  const items = [];
-  for (const h of indice.archivos.historico || []) {
-    if (!h.grupos?.J && !h.grupos?.F) continue;
-    items.push(...JSON.parse(await fs.readFile(path.join(DIR_DATOS, h.f), 'utf8')).items);
+  const todas = [];
+  for (const h of [indice.archivos.abiertas, ...(indice.archivos.historico || [])]) {
+    if (h?.f) todas.push(...JSON.parse(await fs.readFile(path.join(DIR_DATOS, h.f), 'utf8')).items);
   }
-  const empresas = agruparEmpresas(items);
-  log(`${empresas.size} empresas con adjudicaciones`);
 
-  await d1(`CREATE TABLE IF NOT EXISTS empresas (
-    slug TEXT PRIMARY KEY, nombre TEXT NOT NULL, n INTEGER NOT NULL, total INTEGER NOT NULL,
-    adj TEXT NOT NULL, h TEXT NOT NULL, actualizado TEXT NOT NULL)`);
-  const existentes = new Map((await d1('SELECT slug, h FROM empresas')).map((r) => [r.slug, r.h]));
-  log(`${existentes.size} empresas ya en la base de datos`);
+  const empresas = [...agruparEmpresas(todas)].sort((a, b) => b[1].n - a[1].n)
+    .map(([s, e]) => [s, e.nombre, e.n, e.total, JSON.stringify(e.adj)]);
+  let cupo = MAX_ESCRITURAS;
+  cupo -= await sincronizar('empresas', empresas, cupo);
 
-  const ahora = new Date().toISOString().slice(0, 16);
-  // Primero las empresas con más adjudicaciones (si hay que repartir la carga en varios días)
-  const cambiadas = [];
-  for (const [slug, e] of [...empresas].sort((a, b) => b[1].n - a[1].n)) {
-    const adj = JSON.stringify(e.adj);
-    const h = crypto.createHash('sha1').update(`${e.nombre}|${e.n}|${e.total}|${adj}`).digest('base64').slice(0, 12);
-    if (existentes.get(slug) !== h) cambiadas.push([slug, e.nombre, e.n, e.total, adj, h, ahora]);
-  }
-  const borrar = [...existentes.keys()].filter((s) => !empresas.has(s));
-  const aEscribir = cambiadas.slice(0, Math.max(0, MAX_ESCRITURAS - borrar.length));
-  log(`${cambiadas.length} nuevas o cambiadas, ${borrar.length} para borrar${aEscribir.length < cambiadas.length ? ` (hoy se escriben ${aEscribir.length}; el resto, en la próxima actualización)` : ''}`);
-
-  const tareas = [];
-  for (let i = 0; i < aEscribir.length; i += FILAS_POR_CONSULTA) {
-    const lote = aEscribir.slice(i, i + FILAS_POR_CONSULTA);
-    tareas.push(() => d1(
-      `INSERT INTO empresas (slug, nombre, n, total, adj, h, actualizado) VALUES ${lote.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}
-       ON CONFLICT(slug) DO UPDATE SET nombre = excluded.nombre, n = excluded.n, total = excluded.total,
-       adj = excluded.adj, h = excluded.h, actualizado = excluded.actualizado`,
-      lote.flat(),
-    ));
-  }
-  for (let i = 0; i < borrar.length; i += 90) {
-    const lote = borrar.slice(i, i + 90);
-    tareas.push(() => d1(`DELETE FROM empresas WHERE slug IN (${lote.map(() => '?').join(', ')})`, lote));
-  }
-  let hechas = 0;
-  await enParalelo(tareas.map((t) => async () => { await t(); if (++hechas % 200 === 0) log(`  ${hechas}/${tareas.length} lotes`); }), EN_PARALELO);
-  log(`Listo: ${aEscribir.length} empresas escritas y ${borrar.length} borradas.`);
+  const organismos = [...agruparOrganismos(todas)].sort((a, b) => b[1].n - a[1].n)
+    .map(([s, o]) => [s, o.nombre, o.n, o.totalAdj, JSON.stringify({ p: o.p, nAbiertas: o.nAbiertas, nAdj: o.nAdj, abiertas: o.abiertas, adj: o.adj, empresas: o.empresas })]);
+  await sincronizar('organismos', organismos, cupo);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
