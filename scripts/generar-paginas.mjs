@@ -9,6 +9,8 @@
 //   /empresas/                             empresas que más adjudicaciones ganan
 //   /guias/ y /guias/{guia}/               guías para empresas (lib/guias.mjs)
 //   /organismos/                           organismos que más licitan
+//   /licitaciones/oficio/{oficio}/         por oficio (electricista, fontanería…; lib/oficios.mjs)
+//   /hoy/ y /hoy/{AAAA-MM-DD}/             licitaciones aparecidas en las últimas 24 horas y archivo de los últimos días
 // Las páginas de cada organismo (/organismo/{slug}) tampoco son archivos: functions/organismo/[slug].js.
 //   /js/                                   copia de lib/fichas.mjs y lib/empresas.mjs para el buscador
 //   /sitemap.xml                           índice de sitemaps (páginas y empresas)
@@ -23,6 +25,7 @@ import { pagina, esc, SITIO } from '../lib/plantilla.mjs';
 import { agruparEmpresas, tienePagina, rutaEmpresa } from '../lib/empresas.mjs';
 import { GUIAS } from '../lib/guias.mjs';
 import { agruparOrganismos, slugOrganismo, rutaOrganismo } from '../lib/organismos.mjs';
+import { OFICIOS, enOficio } from '../lib/oficios.mjs';
 
 const RAIZ = process.env.DIR_PUBLICO || 'public';
 const DIR_DATOS = path.join(RAIZ, 'data');
@@ -33,6 +36,8 @@ const MAX_ADJ = 15;           // adjudicaciones recientes que se muestran por p�
 // Dejamos margen: las fichas de licitaciones ocupan lo que sobre hasta este límite.
 const LIMITE_ARCHIVOS = 19000;
 const MAX_RELACIONADAS = 6;   // otras licitaciones que se enlazan desde cada ficha
+const DIAS_ARCHIVO = 30;      // días con página propia en /hoy/{fecha}/
+const MAX_HOY = 600;          // licitaciones como máximo en cada página diaria
 const AHORA = new Date();
 
 const euros = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' });
@@ -106,8 +111,8 @@ function filaAbierta(x, provincias) {
   let plazo;
   if (x.f) {
     const d = diasHasta(x.f);
-    plazo = d < 1 ? '<b class="urgente">Cierra hoy</b>' : `<b class="${d <= 3 ? 'urgente' : d <= 7 ? 'pronto' : ''}">${d} ${d === 1 ? 'día' : 'días'}</b>`;
-    plazo += `<span>Cierra el ${fechaCorta(x.f)}</span>`;
+    plazo = x.f < AHORA_MADRID ? '<b class="sinfecha">Plazo cerrado</b>' : d < 1 ? '<b class="urgente">Cierra hoy</b>' : `<b class="${d <= 3 ? 'urgente' : d <= 7 ? 'pronto' : ''}">${d} ${d === 1 ? 'día' : 'días'}</b>`;
+    plazo += `<span>${x.f < AHORA_MADRID ? "Cerró" : "Cierra"} el ${fechaCorta(x.f)}</span>`;
   } else {
     plazo = '<b class="sinfecha">Sin fecha</b><span>Consulta el anuncio</span>';
   }
@@ -187,6 +192,7 @@ async function main() {
   await fs.rm(path.join(RAIZ, 'empresas'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'guias'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'organismos'), { recursive: true, force: true });
+  await fs.rm(path.join(RAIZ, 'hoy'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'js'), { recursive: true, force: true });
 
   const codProv = Object.keys(provincias).filter((p) => p !== '00' && p !== '99').sort((a, b) => provincias[a].localeCompare(provincias[b], 'es'));
@@ -221,6 +227,7 @@ async function main() {
   const comunidades = (meta.comunidades || []).filter(([, provs]) => provs.length > 1);
   const paginasListado = codProv.length + comunidades.length + combos.size + 2 + 3 // + /empresas/, sitemaps
     + 3 // /organismos/, su sitemap y /js/organismos.mjs
+    + OFICIOS.length + 1 + DIAS_ARCHIVO + 1
     + GUIAS.length + 1
     + 2 // archivos en /js/
     + sectores.filter((s) => abPorSector.get(s.c).length || adjPorSector.get(s.c).length).length;
@@ -442,6 +449,97 @@ async function main() {
   }
   await fs.writeFile(path.join(RAIZ, 'licitacion', 'fichas.json'), JSON.stringify({ adjDesde, adjHasta: AHORA_MADRID.slice(0, 10), n: fichas.length }));
 
+  // --- Oficios
+  const oficios = OFICIOS.map(([s, n, frase, pref]) => ({ s, n, frase, pref, ruta: `/licitaciones/oficio/${s}/`,
+    ab: abiertas.filter((x) => enOficio(x, pref)), adj: adjudicadas.filter((x) => enOficio(x, pref)) }));
+  for (const o of oficios) {
+    const porProv = codProv.map((p) => [p, o.ab.filter((x) => x.p === p).length]).filter(([, k]) => k).sort((a, b) => b[1] - a[1]);
+    const cpvs = o.pref.join(',');
+    const cuerpo = `
+  <h1>Licitaciones ${esc(o.frase)}</h1>
+  <p class="intro">Concursos públicos abiertos ${esc(o.frase)} en toda España: ayuntamientos, diputaciones, hospitales y otros organismos que buscan empresas y autónomos de ${esc(minus(o.n))}. Con su plazo, presupuesto y quién ganó los últimos.</p>
+  ${bloqueLista({ abiertas: o.ab, adjudicadas: o.adj, provincias, frase: o.frase, buscador: enlaceBuscador({ cpv: cpvs }) })}
+  ${enlacesRelacionados(`Licitaciones ${o.frase} por provincia`, porProv.map(([p, k]) => [provincias[p], enlaceBuscador({ cpv: cpvs, prov: [p] }), k]))}
+  ${enlacesRelacionados('Otros oficios', oficios.filter((x) => x !== o).map((x) => [x.n, x.ruta, x.ab.length]))}
+  <p class="volver"><a href="/guias/licitaciones-para-autonomos/">Licitaciones para autónomos: cómo empezar</a> · <a href="/guias/contratos-menores/">Contratos menores</a></p>`;
+    await escribir(o.ruta, pagina({
+      ruta: o.ruta, titulo: `Licitaciones ${o.frase}`,
+      descripcion: `${numero.format(o.ab.length)} licitaciones públicas abiertas ${o.frase} en España, con plazos, presupuestos y adjudicatarios. Alertas gratis por email.`,
+      migas: [['Inicio', '/'], ['Licitaciones', '/licitaciones/'], ['Por oficio', '/licitaciones/oficio/'], [o.n, o.ruta]],
+      cuerpo, actualizado,
+    }), sitemap, '0.7');
+  }
+  const listaOficios = oficios.map((o) => [o.n, o.ruta, o.ab.length]);
+  await escribir('/licitaciones/oficio/', pagina({
+    ruta: '/licitaciones/oficio/', titulo: 'Licitaciones por oficio: electricistas, fontanería, limpieza…',
+    descripcion: 'Licitaciones públicas abiertas por oficio: electricistas, fontanería, pintura, carpintería, jardinería, limpieza, catering y más. Gratis y actualizado a diario.',
+    migas: [['Inicio', '/'], ['Licitaciones', '/licitaciones/'], ['Por oficio', '/licitaciones/oficio/']],
+    cuerpo: `
+  <h1>Licitaciones por oficio</h1>
+  <p class="intro">Elige tu oficio y verás los concursos públicos abiertos que encajan, sin necesidad de conocer los códigos CPV.</p>
+  ${enlacesRelacionados('Oficios', listaOficios)}`,
+    actualizado,
+  }), sitemap, '0.8');
+
+  // --- Hoy y archivo diario (por el día en que la licitación apareció en LicitaEmpresa, hora de Madrid)
+  const diaMadrid = (vt) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(vt.slice(0, 16) + ':00Z'));
+  const hoyMadrid = AHORA_MADRID.slice(0, 10);
+  const porDia = new Map();
+  for (const x of todas) {
+    if (!x.vt) continue;
+    const d = diaMadrid(x.vt);
+    if (!porDia.has(d)) porDia.set(d, []);
+    porDia.get(d).push(x);
+  }
+  const dias = [];
+  for (let i = 1; i <= DIAS_ARCHIVO; i++) {
+    const d = new Date(Date.parse(hoyMadrid + 'T12:00:00Z') - i * 864e5).toISOString().slice(0, 10);
+    if (porDia.get(d)?.length) dias.push(d);
+  }
+  const fechaDia = (d) => new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(d + 'T12:00:00Z'));
+  const filaHoy = (x) => (x.g === 'J' || x.g === 'F') && x.ad?.length ? filaAdjudicada({ ...x, fa: x.fa || x.a }, provincias) : filaAbierta(x, provincias);
+  const listaDia = (items) => {
+    const ordenadas = [...items].sort((a, b) => (a.p || '').localeCompare(b.p || '') || ((a.f || '9999') < (b.f || '9999') ? -1 : 1));
+    const grupos = new Map();
+    for (const x of ordenadas.slice(0, MAX_HOY)) {
+      const k = provincias[x.p] || 'Sin provincia';
+      if (!grupos.has(k)) grupos.set(k, []);
+      grupos.get(k).push(x);
+    }
+    return [...grupos].sort((a, b) => a[0].localeCompare(b[0], 'es'))
+      .map(([k, l]) => `<h2>${esc(k)} <span class="cuenta">${numero.format(l.length)}</span></h2><ol class="lista">${l.map(filaHoy).join('')}</ol>`).join('')
+      + (items.length > MAX_HOY ? `<p class="mas">Se muestran ${numero.format(MAX_HOY)} de ${numero.format(items.length)}. <a href="/#orden=recientes">Ver todas en el buscador</a></p>` : '');
+  };
+  const archivo = dias.length ? `<h2>Días anteriores</h2><ul class="enlaces">${dias.map((d) => `<li><a href="/hoy/${d}/">${esc(fechaDia(d))}</a> <span>${numero.format(porDia.get(d).length)}</span></li>`).join('')}</ul>` : '';
+  const desde24 = new Date(AHORA.getTime() - 864e5).toISOString().slice(0, 16);
+  const ultimas = abiertas.filter((x) => (x.vt || '') >= desde24);
+  await escribir('/hoy/', pagina({
+    ruta: '/hoy/', titulo: 'Licitaciones publicadas hoy',
+    descripcion: `${numero.format(ultimas.length)} licitaciones públicas nuevas en las últimas 24 horas en España, por provincia, con plazo y presupuesto. Actualizado varias veces al día.`,
+    migas: [['Inicio', '/'], ['Publicadas hoy', '/hoy/']],
+    cuerpo: `
+  <h1>Licitaciones publicadas hoy</h1>
+  <p class="intro">Las <b>${numero.format(ultimas.length)}</b> licitaciones en plazo que han aparecido en las últimas 24 horas, ordenadas por provincia. Si no quieres revisarlas a diario, <a href="/#alerta=1">crea una alerta</a> y te llegarán por email solo las de tu sector.</p>
+  ${ultimas.length ? listaDia(ultimas) : '<p class="vacio">Todavía no hay licitaciones nuevas en las últimas 24 horas.</p>'}
+  ${archivo}`,
+    actualizado,
+  }), sitemap, '0.9');
+  for (const d of dias) {
+    const items = porDia.get(d);
+    const ruta = `/hoy/${d}/`;
+    await escribir(ruta, pagina({
+      ruta, titulo: `Licitaciones publicadas el ${fechaDia(d)}`,
+      descripcion: `${numero.format(items.length)} licitaciones públicas publicadas el ${fechaDia(d)} en España, por provincia.`,
+      migas: [['Inicio', '/'], ['Publicadas hoy', '/hoy/'], [fechaDia(d), ruta]],
+      cuerpo: `
+  <h1>Licitaciones publicadas el ${esc(fechaDia(d))}</h1>
+  <p class="intro">${numero.format(items.length)} licitaciones aparecieron este día. Su estado puede haber cambiado desde entonces: se muestra el actual.</p>
+  ${listaDia(items)}
+  ${archivo}`,
+      actualizado,
+    }), sitemap, '0.4', d);
+  }
+
   // --- Índice general /licitaciones/
   const porComunidad = (meta.comunidades || []).map(([com, provs]) => `<div class="grupo"><h3>${provs.length > 1 ? `<a href="/licitaciones/${slug(com)}/">${esc(com)}</a>` : esc(com)}</h3><ul>${provs
     .map((p) => `<li><a href="${rutaProv(p)}">${esc(provincias[p])}</a> <span>${numero.format(abPorProv.get(p)?.length || 0)}</span></li>`).join('')}</ul></div>`).join('');
@@ -456,6 +554,7 @@ async function main() {
   <p class="intro">Hay <b>${numero.format(abiertas.length)}</b> licitaciones públicas abiertas en España. Elige tu provincia o tu sector para ver los concursos en plazo y las últimas adjudicaciones.</p>
   <h2>Por provincia</h2>
   <div class="grupos">${porComunidad}</div>
+  ${enlacesRelacionados('Por oficio', listaOficios)}
   ${enlacesRelacionados('Por sector', listaSectores)}`,
     actualizado,
   }), sitemap, '0.9');

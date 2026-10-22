@@ -261,7 +261,7 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
 
 <header class="ancho barra-sup">
   <a class="marca" href="/"><i aria-hidden="true">L</i>LicitaEmpresa</a>
-  <nav class="menu" aria-label="Principal"><a href="/licitaciones/">Provincias</a><a href="/empresas/">Empresas</a><a href="/organismos/">Organismos</a><a href="/guias/">Guías</a><button type="button" class="boton-sol" id="alertaCabecera" hidden>Crear alerta</button></nav>
+  <nav class="menu" aria-label="Principal"><a href="/hoy/">Hoy</a><a href="/licitaciones/">Provincias</a><a href="/empresas/">Empresas</a><a href="/organismos/">Organismos</a><a href="/guias/">Guías</a><button type="button" class="boton-sol" id="alertaCabecera" hidden>Crear alerta</button></nav>
 </header>
 
 <div class="ancho">
@@ -407,6 +407,8 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     <a href="/licitaciones/"><b>Licitaciones por provincia y sector</b></a>
     <a href="/empresas/"><b>Empresas que más ganan</b></a>
     <a href="/organismos/"><b>Organismos que más licitan</b></a>
+    <a href="/hoy/"><b>Publicadas hoy</b></a>
+    <a href="/licitaciones/oficio/"><b>Por oficio</b></a>
     <a href="/guias/"><b>Guías para licitar</b></a>
     <a href="/licitaciones/madrid/">Madrid</a><a href="/licitaciones/barcelona/">Barcelona</a><a href="/licitaciones/valencia/">Valencia</a>
     <a href="/licitaciones/sevilla/">Sevilla</a><a href="/licitaciones/bizkaia/">Bizkaia</a><a href="/licitaciones/gipuzkoa/">Gipuzkoa</a>
@@ -632,7 +634,9 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     const lista = SECTORES_PORTADA.map(([c, n]) => [c, n, vivos.filter((x) => x.c.some((k) => k.startsWith(c))).length]).filter(([, , k]) => k > 0);
     $('sectores').innerHTML = lista.map(([c, n, k]) => `<button type="button" class="sector" data-c="${c}">${esc(n)}<span>${fmtNum.format(k)}</span></button>`).join('');
     $('sectoresTit').hidden = !lista.length;
-    if (vivos.length) $('estadoDatos').innerHTML = `Ahora hay <strong>${fmtNum.format(vivos.length)}</strong> licitaciones en plazo · actualizado ${haceCuanto(meta.actualizado)}`;
+    const nuevas = vivos.filter((x) => x.vt && Date.parse(x.vt + ':00Z') > Date.now() - 864e5).length;
+    if (vivos.length) $('estadoDatos').innerHTML = `Ahora hay <strong>${fmtNum.format(vivos.length)}</strong> licitaciones en plazo · actualizado ${haceCuanto(meta.actualizado)}`
+      + (nuevas ? ` · <a href="/hoy/">${fmtNum.format(nuevas)} nuevas en las últimas 24 h</a>` : '');
   }
 
   function enlazar() {
