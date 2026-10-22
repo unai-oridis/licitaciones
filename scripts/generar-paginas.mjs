@@ -463,7 +463,7 @@ async function main() {
   }), sitemap, '0.7');
 
   // --- Guías para empresas
-  const listaGuias = `<ul class="enlaces guias">${GUIAS.map((g) => `<li><a href="/guias/${g.slug}/">${esc(g.titulo)}</a></li>`).join('')}</ul>`;
+  const listaGuias = `<ul class="guias-lista">${GUIAS.map((g) => `<li><a href="/guias/${g.slug}/">${esc(g.titulo)}</a><p>${esc(g.descripcion)}</p></li>`).join('')}</ul>`;
   for (const g of GUIAS) {
     const ruta = `/guias/${g.slug}/`;
     const otras = GUIAS.filter((o) => o !== g);
