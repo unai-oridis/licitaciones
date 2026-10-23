@@ -196,3 +196,16 @@ h2 .cuenta { color: var(--muted); font-weight: 600; font-size: 17px; margin-left
 .ranking span { color: var(--muted); font-size: 14px; }
 .metodo li { margin: 6px 0; max-width: 90ch; }
 @media (max-width: 860px) { .cifras b { font-size: 24px; } .col-barra { display: none; } }
+
+/* Recuadro para otras webs (/para-tu-web/) */
+.recuadro-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; margin: 8px 0 32px; }
+.recuadro-form { display: grid; gap: 14px; background: var(--cielo); border-radius: 18px; padding: 20px; }
+.recuadro-form label { display: grid; gap: 6px; font-weight: 700; font-size: 15px; }
+.recuadro-form label[hidden] { display: none; }
+.recuadro-form select, .recuadro-form input, .recuadro-form textarea { font: inherit; font-weight: 400; font-size: 15px; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: 12px; padding: 10px 12px; min-height: 44px; width: 100%; }
+.recuadro-form textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; resize: vertical; }
+.recuadro-form .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.recuadro-vista { position: sticky; top: 16px; }
+.recuadro-vista iframe { width: 100%; max-width: 520px; border: 0; display: block; }
+@media (max-width: 860px) { .recuadro-editor { grid-template-columns: 1fr; } .recuadro-vista { position: static; } }

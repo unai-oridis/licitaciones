@@ -12,6 +12,7 @@ LicitaEmpresa es un proyecto de Soluciones Globales Echeyde 360, S.L.U. (Pasaia,
 - [Publicadas hoy](https://licitaempresa.es/hoy/): licitaciones nuevas de las últimas 24 horas, por provincia.
 - [Por provincia y sector](https://licitaempresa.es/licitaciones/): páginas de cada provincia, comunidad autónoma y sector.
 - [Por oficio](https://licitaempresa.es/licitaciones/oficio/): electricistas, fontanería, limpieza, jardinería, catering y otros 25 oficios.
+- [Por municipio](https://licitaempresa.es/municipios/): cada municipio tiene una página con las licitaciones abiertas del ayuntamiento y de otros organismos en esa localidad (/municipio/{nombre}-{provincia}, por ejemplo /municipio/pasaia-gipuzkoa).
 
 ## Empresas y organismos
 
@@ -27,6 +28,10 @@ LicitaEmpresa es un proyecto de Soluciones Globales Echeyde 360, S.L.U. (Pasaia,
 - [Guías](https://licitaempresa.es/guias/): cómo presentarse a una licitación, códigos CPV, procedimientos e importes, documentación (DEUC, solvencia, ROLECE, clasificación), garantías, baja temeraria, UTE, memoria técnica, recursos, autónomos y contratos menores.
 - [Preguntas frecuentes](https://licitaempresa.es/preguntas/): respuestas cortas a las dudas más habituales.
 - [Comparativa de webs de licitaciones](https://licitaempresa.es/guias/alternativas-gratis-para-buscar-licitaciones/): precios y planes gratuitos de los principales servicios.
+
+## Para otras webs
+
+- [Licitaciones para tu web](https://licitaempresa.es/para-tu-web/): recuadro gratuito, sin cookies, para mostrar en cualquier web las licitaciones abiertas de un municipio, provincia, sector u oficio.
 
 ## Sobre la web
 

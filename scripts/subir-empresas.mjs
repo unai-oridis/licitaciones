@@ -1,6 +1,8 @@
 // Sube a la base de datos D1 de Cloudflare los datos de las páginas que se montan al visitarlas:
 //   tabla «empresas»   → /empresa/{slug}   (functions/empresa/[slug].js)
 //   tabla «organismos» → /organismo/{slug} (functions/organismo/[slug].js)
+//   tabla «municipios» → /municipio/{slug} (functions/municipio/[slug].js)
+//   tabla «recuadros»  → /recuadro/{clave} (functions/recuadro/[clave].js), el recuadro para otras webs
 // Solo escribe las filas que han cambiado, para no pasar del límite gratuito de escrituras de D1.
 //
 // Variables de entorno (secretos de GitHub): CF_ACCOUNT_ID, CF_D1_ID, CF_API_TOKEN
@@ -10,6 +12,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { agruparEmpresas } from '../lib/empresas.mjs';
 import { agruparOrganismos } from '../lib/organismos.mjs';
+import { agruparMunicipios } from '../lib/municipios.mjs';
+import { construirRecuadros } from '../lib/recuadros.mjs';
 
 const DIR_DATOS = process.env.DIR_DATOS || 'public/data';
 const MAX_ESCRITURAS = Number(process.env.MAX_ESCRITURAS || 40000); // D1 gratis: 100.000 filas escritas al día
@@ -85,7 +89,7 @@ async function sincronizar(tabla, filas, cupo) {
 
 async function main() {
   if (!process.env.CF_ACCOUNT_ID || !process.env.CF_D1_ID || !process.env.CF_API_TOKEN) {
-    log('Faltan los secretos de Cloudflare. No se suben empresas ni organismos.');
+    log('Faltan los secretos de Cloudflare. No se suben empresas, organismos, municipios ni recuadros.');
     return;
   }
   const indice = JSON.parse(await fs.readFile(path.join(DIR_DATOS, 'indice.json'), 'utf8'));
@@ -94,9 +98,21 @@ async function main() {
     if (h?.f) todas.push(...JSON.parse(await fs.readFile(path.join(DIR_DATOS, h.f), 'utf8')).items);
   }
 
+  let cupo = MAX_ESCRITURAS;
+  // Recuadros: las listas de los recuadros para otras webs (pocas filas)
+  const ahora = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+    .format(new Date()).replace(' ', 'T');
+  const enPlazo = todas.filter((x) => x.g === 'A' && (!x.f || x.f >= ahora));
+  const recuadros = [...construirRecuadros(enPlazo)]
+    .map(([k, r]) => [k, r.titulo, r.n, 0, JSON.stringify({ url: r.url, items: r.items })]);
+  cupo -= await sincronizar('recuadros', recuadros, cupo);
+
+  const municipios = [...agruparMunicipios(todas)].sort((a, b) => b[1].n - a[1].n)
+    .map(([s, m]) => [s, m.nombre, m.n, m.totalAdj, JSON.stringify({ p: m.p, nAbiertas: m.nAbiertas, nAdj: m.nAdj, abiertas: m.abiertas, adj: m.adj, organismos: m.organismos, empresas: m.empresas })]);
+  cupo -= await sincronizar('municipios', municipios, cupo);
+
   const empresas = [...agruparEmpresas(todas)].sort((a, b) => b[1].n - a[1].n)
     .map(([s, e]) => [s, e.nombre, e.n, e.total, JSON.stringify(e.adj)]);
-  let cupo = MAX_ESCRITURAS;
   cupo -= await sincronizar('empresas', empresas, cupo);
 
   const organismos = [...agruparOrganismos(todas)].sort((a, b) => b[1].n - a[1].n)

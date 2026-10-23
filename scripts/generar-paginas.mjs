@@ -9,6 +9,8 @@
 //   /empresas/                             empresas que más adjudicaciones ganan
 //   /guias/ y /guias/{guia}/               guías para empresas (lib/guias.mjs)
 //   /organismos/                           organismos que más licitan
+//   /municipios/                           municipios con más licitaciones (cada /municipio/{slug} lo monta functions/municipio/[slug].js)
+//   /para-tu-web/                          recuadro de licitaciones para insertar en otras webs (functions/recuadro/[clave].js)
 //   /licitaciones/oficio/{oficio}/         por oficio (electricista, fontanería…; lib/oficios.mjs)
 //   /preguntas/ y /preguntas/{pregunta}/  preguntas frecuentes (lib/preguntas.mjs)
 //   /estadisticas/                         datos propios: competencia, bajadas de precio, sectores, comunidades
@@ -27,6 +29,8 @@ import { pagina, esc, SITIO } from '../lib/plantilla.mjs';
 import { agruparEmpresas, tienePagina, rutaEmpresa } from '../lib/empresas.mjs';
 import { GUIAS } from '../lib/guias.mjs';
 import { agruparOrganismos, slugOrganismo, rutaOrganismo } from '../lib/organismos.mjs';
+import { agruparMunicipios, municipioDe, slugMunicipio } from '../lib/municipios.mjs';
+import { opcionesRecuadro } from '../lib/recuadros.mjs';
 import { OFICIOS, enOficio } from '../lib/oficios.mjs';
 import { PREGUNTAS } from '../lib/preguntas.mjs';
 
@@ -183,6 +187,7 @@ async function main() {
   const t0 = Date.now();
   const { meta, abiertas, adjudicadas, vivas, todas } = await cargar();
   const organismos = agruparOrganismos(todas);
+  const municipios = agruparMunicipios(todas);
   nombreOrgano = (o) => (organismos.has(slugOrganismo(o)) ? `<a href="${rutaOrganismo(o)}">${esc(o)}</a>` : esc(o));
   const empresas = agruparEmpresas(adjudicadas);
   const provincias = meta.provincias || {};
@@ -195,6 +200,8 @@ async function main() {
   await fs.rm(path.join(RAIZ, 'empresas'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'guias'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'organismos'), { recursive: true, force: true });
+  await fs.rm(path.join(RAIZ, 'municipios'), { recursive: true, force: true });
+  await fs.rm(path.join(RAIZ, 'para-tu-web'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'hoy'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'preguntas'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'estadisticas'), { recursive: true, force: true });
@@ -232,6 +239,7 @@ async function main() {
   const comunidades = (meta.comunidades || []).filter(([, provs]) => provs.length > 1);
   const paginasListado = codProv.length + comunidades.length + combos.size + 2 + 3 // + /empresas/, sitemaps
     + 3 // /organismos/, su sitemap y /js/organismos.mjs
+    + 3 // /municipios/, su sitemap y /para-tu-web/
     + OFICIOS.length + 1 + DIAS_ARCHIVO + 1 + PREGUNTAS.length + 1 + 1
     + GUIAS.length + 1
     + 2 // archivos en /js/
@@ -268,6 +276,16 @@ async function main() {
   const organismosPorProv = new Map(codProv.map((p) => [p, []]));
   for (const [s, o] of organismos) organismosPorProv.get(o.p)?.push([o.nombre, `/organismo/${s}`, o.n]);
   for (const l of organismosPorProv.values()) l.sort((a, b) => b[2] - a[2]).splice(12);
+  const municipiosPorProv = new Map(codProv.map((p) => [p, []]));
+  for (const [s, m] of municipios) municipiosPorProv.get(m.p)?.push([m.nombre, `/municipio/${s}`, m.nAbiertas, m.n]);
+  for (const l of municipiosPorProv.values()) l.sort((a, b) => b[3] - a[3]);
+  // Enlace «Licitaciones en {municipio}» desde cada ficha (solo si el municipio tiene página)
+  const rutaMunicipioDe = (x) => {
+    const m = municipioDe(x);
+    if (!m) return null;
+    const sl = slugMunicipio(m.nombre, m.p);
+    return municipios.has(sl) ? [municipios.get(sl).nombre, `/municipio/${sl}`] : null;
+  };
   const empresasPorSector = new Map(sectores.map((s) => [s.c, topEmpresas((a) => String(a[4]).startsWith(s.c))]));
 
   // --- Provincias
@@ -283,6 +301,7 @@ async function main() {
   <p class="intro">Concursos y contratos públicos de ayuntamientos, diputaciones, gobierno autonómico y organismos del Estado en ${esc(nombre)}, con su plazo de presentación, presupuesto y enlace al anuncio oficial. Se actualiza varias veces al día.</p>
   ${bloqueLista({ abiertas: ab, adjudicadas: adjPorProv.get(p), provincias, frase: `en ${nombre}`, buscador: enlaceBuscador({ prov: [p] }) })}
   ${enlacesRelacionados(`Licitaciones por sector en ${nombre}`, sectoresAqui)}
+  ${enlacesRelacionados(`Municipios con más licitaciones en ${nombre}`, municipiosPorProv.get(p).slice(0, 24).map(([n, r, k]) => [n, r, k]))}
   ${enlacesRelacionados(`Organismos que más licitan en ${nombre}`, organismosPorProv.get(p))}
   ${enlacesRelacionados(`Empresas que más adjudicaciones ganan en ${nombre}`, empresasPorProv.get(p))}`;
     await escribir(rutaProv(p), pagina({
@@ -420,7 +439,9 @@ async function main() {
     }
     parecidas = parecidas.slice(0, MAX_RELACIONADAS);
 
+    const mun = rutaMunicipioDe(x);
     const relacionados = [
+      mun && mun[0] !== nombreProv ? [`Licitaciones en ${mun[0]}`, mun[1]] : null,
       conProv ? [`Licitaciones en ${nombreProv}`, rutaProv(x.p)] : null,
       conProv && sec && combos.has(`${x.p}|${sec.c}`) ? [`${sec.n} en ${nombreProv}`, rutaCombo(x.p, sec)] : null,
       sec ? [`${sec.n} en toda España`, rutaSector(sec)] : null,
@@ -633,6 +654,125 @@ async function main() {
     actualizado,
   }), sitemap, '0.7');
 
+  // --- Índice de municipios /municipios/
+  {
+    const ranking = [...municipios].sort((a, b) => b[1].n - a[1].n).slice(0, 500).map(([sl, m]) => [`${m.nombre} (${provincias[m.p]})`, `/municipio/${sl}`, m.nAbiertas]);
+    const porProvMun = codProv.filter((p) => municipiosPorProv.get(p).length)
+      .map((p) => `<div class="grupo"><h3><a href="${rutaProv(p)}">${esc(provincias[p])}</a></h3><ul>${municipiosPorProv.get(p).slice(0, 8)
+        .map(([n, r, k]) => `<li><a href="${r}">${esc(n)}</a> <span>${numero.format(k)}</span></li>`).join('')}</ul></div>`).join('');
+    await escribir('/municipios/', pagina({
+      ruta: '/municipios/', titulo: 'Licitaciones por municipio: ayuntamientos y contratos en tu localidad',
+      descripcion: `Licitaciones públicas abiertas en ${numero.format(municipios.size)} municipios de España: concursos del ayuntamiento y de otros organismos en cada localidad, con plazos, presupuestos y adjudicatarios.`,
+      migas: [['Inicio', '/'], ['Municipios', '/municipios/']],
+      cuerpo: `
+  <h1>Licitaciones por municipio</h1>
+  <p class="intro">Concursos públicos abiertos en ${numero.format(municipios.size)} municipios de España: los del ayuntamiento y los de otros organismos que contratan allí o tienen allí su sede. El número indica las licitaciones abiertas ahora.</p>
+  <h2>Por provincia</h2>
+  <div class="grupos">${porProvMun}</div>
+  ${enlacesRelacionados('Municipios con más licitaciones', ranking)}`,
+      actualizado,
+    }), sitemap, '0.7');
+  }
+
+  // --- Recuadro para otras webs /para-tu-web/
+  {
+    const op = opcionesRecuadro();
+    const listaMun = [...municipios].filter(([, m]) => m.n >= 3).sort((a, b) => b[1].n - a[1].n).slice(0, 4000)
+      .map(([sl, m]) => [sl, `${m.nombre} (${provincias[m.p]})`]).sort((a, b) => a[1].localeCompare(b[1], 'es'));
+    const opciones = (l) => l.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
+    const cuerpo = `
+  <h1>Licitaciones públicas en tu web, gratis</h1>
+  <p class="intro">Muestra en tu web las últimas licitaciones abiertas de tu municipio, tu provincia o tu sector. Se actualiza sola varias veces al día y no tienes que hacer nada más: copia el código y pégalo en tu página.</p>
+  <section class="recuadro-editor">
+    <form class="recuadro-form" id="rf" onsubmit="return false">
+      <label>¿Qué licitaciones quieres mostrar?
+        <select id="rTipo">
+          <option value="provincia">De una provincia</option>
+          <option value="municipio">De un municipio</option>
+          <option value="provincia-sector">De un sector en una provincia</option>
+          <option value="sector">De un sector, en toda España</option>
+          <option value="oficio">De un oficio, en toda España</option>
+          <option value="espana">Todas, en toda España</option>
+        </select></label>
+      <label data-para="provincia provincia-sector">Provincia<select id="rProv">${opciones(op.provincias).replace('value="madrid"', 'value="madrid" selected')}</select></label>
+      <label data-para="sector provincia-sector">Sector<select id="rSector">${opciones(op.sectores)}</select></label>
+      <label data-para="oficio">Oficio<select id="rOficio">${opciones(op.oficios)}</select></label>
+      <label data-para="municipio">Municipio<input id="rMun" list="rMunLista" placeholder="Escribe el nombre…" autocomplete="off"><datalist id="rMunLista">${listaMun.map(([, t]) => `<option value="${esc(t)}">`).join('')}</datalist></label>
+      <div class="fila2">
+        <label>Licitaciones<select id="rN"><option>3</option><option>4</option><option>5</option><option selected>6</option><option>8</option><option>10</option></select></label>
+        <label>Aspecto<select id="rTema"><option value="">Claro</option><option value="oscuro">Oscuro</option></select></label>
+      </div>
+      <label>Código para pegar en tu web<textarea id="rCodigo" rows="6" readonly></textarea></label>
+      <button class="boton principal" type="button" id="rCopiar">Copiar código</button> <span id="rCopiado" class="nota" hidden>Copiado ✓</span>
+    </form>
+    <div class="recuadro-vista"><p class="nota">Vista previa</p><iframe id="rVista" title="Vista previa del recuadro" loading="lazy"></iframe></div>
+  </section>
+  <h2>Para quién es</h2>
+  <ul class="metodo">
+    <li><strong>Ayuntamientos y mancomunidades:</strong> muestra en tu web los concursos que publicáis, con enlace a cada anuncio.</li>
+    <li><strong>Asociaciones empresariales, cámaras de comercio y agencias de desarrollo:</strong> ofrece a tus asociados las licitaciones de su sector o comarca.</li>
+    <li><strong>Periódicos y medios locales:</strong> una sección de contratos públicos que se mantiene sola.</li>
+    <li><strong>Gestorías, asesorías y colegios profesionales:</strong> un servicio útil más para tus clientes.</li>
+  </ul>
+  <h2>Preguntas</h2>
+  <ul class="metodo">
+    <li><strong>¿Cuesta algo?</strong> No. Es gratis y sin registro.</li>
+    <li><strong>¿Pone cookies o recoge datos de mis visitantes?</strong> No. El recuadro no usa cookies ni rastreadores.</li>
+    <li><strong>¿Cómo lo pego?</strong> En WordPress, añade un bloque «HTML personalizado» y pega el código. En otros gestores, busca la opción de insertar código HTML o un «iframe».</li>
+    <li><strong>¿De dónde salen los datos?</strong> De la Plataforma de Contratación del Sector Público y de las plataformas autonómicas, como el resto de <a href="/sobre">LicitaEmpresa</a>.</li>
+    <li>¿Necesitas otro filtro o un diseño a medida? Escríbenos a <a href="mailto:contacto@licitaempresa.es">contacto@licitaempresa.es</a>.</li>
+  </ul>
+  <script>
+  (function () {
+    var MUN = ${JSON.stringify(Object.fromEntries(listaMun.map(([sl, t]) => [t, sl]))).replace(/</g, '\\u003c')};
+    var $ = function (id) { return document.getElementById(id); };
+    var SITIO = 'https://licitaempresa.es';
+    function texto(sel) { return sel.options[sel.selectedIndex].text; }
+    function minus(s) { return s.charAt(0).toLowerCase() + s.slice(1); }
+    function calcular() {
+      var t = $('rTipo').value, p = $('rProv').value, s = $('rSector').value, o = $('rOficio').value;
+      var np = texto($('rProv')), ns = texto($('rSector')), no = texto($('rOficio'));
+      if (t === 'provincia') return { clave: 'provincia-' + p, url: '/licitaciones/' + p + '/', texto: 'Licitaciones en ' + np };
+      if (t === 'provincia-sector') return { clave: 'provincia-' + p + '-sector-' + s, url: '/licitaciones/' + p + '/', texto: 'Licitaciones de ' + minus(ns) + ' en ' + np };
+      if (t === 'sector') return { clave: 'sector-' + s, url: '/licitaciones/sector/' + s + '/', texto: 'Licitaciones de ' + minus(ns) };
+      if (t === 'oficio') return { clave: 'oficio-' + o, url: '/licitaciones/oficio/' + o + '/', texto: 'Licitaciones de ' + minus(no) };
+      if (t === 'municipio') {
+        var m = MUN[$('rMun').value.trim()];
+        if (!m) return null;
+        return { clave: 'municipio-' + m, url: '/municipio/' + m, texto: 'Licitaciones en ' + $('rMun').value.replace(/\\s*\\(.*$/, '') };
+      }
+      return { clave: 'espana', url: '/', texto: 'Licitaciones públicas en España' };
+    }
+    function pintar() {
+      var t = $('rTipo').value;
+      document.querySelectorAll('#rf [data-para]').forEach(function (l) { l.hidden = l.getAttribute('data-para').split(' ').indexOf(t) < 0; });
+      var c = calcular();
+      if (!c) { $('rCodigo').value = 'Elige un municipio de la lista.'; return; }
+      var n = Number($('rN').value), tema = $('rTema').value;
+      var src = SITIO + '/recuadro/' + c.clave + '?n=' + n + (tema ? '&tema=' + tema : '');
+      var alto = 104 + n * 106;
+      $('rVista').src = src; $('rVista').style.height = alto + 'px';
+      $('rCodigo').value = '<iframe src="' + src + '" width="100%" height="' + alto + '" style="border:0;max-width:520px" title="' + c.texto + '" loading="lazy"></iframe>\\n'
+        + '<p style="font-size:13px;margin:4px 0 0"><a href="' + SITIO + c.url + '">' + c.texto + '</a> en LicitaEmpresa</p>';
+    }
+    ['rTipo', 'rProv', 'rSector', 'rOficio', 'rN', 'rTema'].forEach(function (id) { $(id).addEventListener('change', pintar); });
+    $('rMun').addEventListener('input', pintar);
+    $('rCopiar').addEventListener('click', function () {
+      var c = $('rCodigo'); c.select();
+      (navigator.clipboard ? navigator.clipboard.writeText(c.value) : Promise.reject()).catch(function () { document.execCommand('copy'); })
+        .finally(function () { $('rCopiado').hidden = false; setTimeout(function () { $('rCopiado').hidden = true; }, 2500); });
+    });
+    pintar();
+  })();
+  </script>`;
+    await escribir('/para-tu-web/', pagina({
+      ruta: '/para-tu-web/', titulo: 'Licitaciones para tu web: recuadro gratuito para ayuntamientos y asociaciones',
+      descripcion: 'Muestra gratis en tu web las licitaciones públicas abiertas de tu municipio, provincia o sector. Se actualiza sola, sin cookies. Para ayuntamientos, asociaciones, cámaras de comercio y medios.',
+      migas: [['Inicio', '/'], ['Para tu web', '/para-tu-web/']],
+      cuerpo, actualizado,
+    }), sitemap, '0.6');
+  }
+
   // --- Preguntas frecuentes
   const titGuia = new Map(GUIAS.map((g) => [g.slug, g.titulo]));
   const textoPlano = (h) => h.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
@@ -790,6 +930,7 @@ async function main() {
   const urls = [['/', '1.0'], ...sitemap, ['/sobre', '0.5'], ['/anunciate', '0.3'], ['/aviso-legal', '0.2'], ['/privacidad', '0.2'], ['/cookies', '0.2']];
   const urlsEmpresas = [...empresas.keys()].sort().map((s) => [`/empresa/${s}`, '0.4']);
   const urlsOrganismos = [...organismos.keys()].sort().map((s) => [`/organismo/${s}`, '0.5']);
+  const urlsMunicipios = [...municipios.keys()].sort().map((s) => [`/municipio/${s}`, '0.6']);
   const xml = (lista) => `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${lista.map(([r, pr, lm]) => `  <url><loc>${SITIO}${encodeURI(r)}</loc><lastmod>${/^\d{4}-\d{2}-\d{2}/.test(lm || '') ? lm.slice(0, 10) : hoy}</lastmod><priority>${pr}</priority></url>`).join('\n')}
@@ -798,6 +939,7 @@ ${lista.map(([r, pr, lm]) => `  <url><loc>${SITIO}${encodeURI(r)}</loc><lastmod>
   const archivos = [['sitemap-paginas.xml', urls]];
   for (let i = 0; i < urlsEmpresas.length; i += 45000) archivos.push([`sitemap-empresas-${i / 45000 + 1}.xml`, urlsEmpresas.slice(i, i + 45000)]);
   for (let i = 0; i < urlsOrganismos.length; i += 45000) archivos.push([`sitemap-organismos-${i / 45000 + 1}.xml`, urlsOrganismos.slice(i, i + 45000)]);
+  for (let i = 0; i < urlsMunicipios.length; i += 45000) archivos.push([`sitemap-municipios-${i / 45000 + 1}.xml`, urlsMunicipios.slice(i, i + 45000)]);
   for (const [f, lista] of archivos) await fs.writeFile(path.join(RAIZ, f), xml(lista));
   await fs.writeFile(path.join(RAIZ, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -805,7 +947,7 @@ ${archivos.map(([f]) => `  <sitemap><loc>${SITIO}/${f}</loc><lastmod>${hoy}</las
 </sitemapindex>
 `);
 
-  console.log(`Páginas generadas: ${sitemap.length} (${codProv.length} provincias, ${comunidades.length} comunidades, ${combos.size} sector+provincia, ${fichas.length} fichas de licitación; adjudicaciones desde ${adjDesde}; ${empresas.size} empresas y ${organismos.size} organismos en el sitemap) en ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  console.log(`Páginas generadas: ${sitemap.length} (${codProv.length} provincias, ${comunidades.length} comunidades, ${combos.size} sector+provincia, ${fichas.length} fichas de licitación; adjudicaciones desde ${adjDesde}; ${empresas.size} empresas, ${organismos.size} organismos y ${municipios.size} municipios en el sitemap) en ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

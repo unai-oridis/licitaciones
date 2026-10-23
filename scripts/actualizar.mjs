@@ -153,6 +153,24 @@ function provinciaDe(cfs) {
   return cpOrgano || '99';
 }
 
+// Municipio: donde se ejecuta el contrato (si se indica) y donde tiene su sede el organismo.
+// Se guarda el nombre tal cual; lib/municipios.mjs lo limpia al agrupar.
+const ciudad = (v) => txt(v).replace(/\s+/g, ' ').slice(0, 80);
+const cp = (v) => { const c = txt(v).replace(/\D/g, ''); return c.length === 5 ? c : ''; };
+function municipioDe(cfs) {
+  const pp = cfs.ProcurementProject || {};
+  const lugares = [pp.RealizedLocation, ...(cfs.ProcurementProjectLot || []).map((l) => l.ProcurementProject?.RealizedLocation)];
+  const r = {};
+  for (const lugar of lugares) {
+    const m = ciudad(lugar?.Address?.CityName);
+    if (m) { r.m = m; const z = cp(lugar.Address.PostalZone); if (z) r.mz = z; break; }
+  }
+  const dir = cfs.LocatedContractingParty?.Party?.PostalAddress;
+  const om = ciudad(dir?.CityName);
+  if (om) { r.om = om; const z = cp(dir.PostalZone); if (z) r.oz = z; }
+  return r;
+}
+
 function adjudicacionDe(cfs) {
   const ad = [];
   let rc = '';
@@ -207,6 +225,7 @@ function leerEntrada(e, fuente) {
       fu: fuente === 'estado' ? 'E' : 'A',
       a: txt(e.updated).slice(0, 10),
       s: txt(cfs.ContractFolderStatusCode),
+      ...municipioDe(cfs),
       ...(rc ? { rc } : {}),
       ...(fa ? { fa } : {}),
       ...(ad.length ? { ad: ad.slice(0, 5), nad: ad.length } : {}),
@@ -446,6 +465,28 @@ async function main() {
   const fuentesMeta = { ...(anterior.meta.fuentes || {}) };
   let fallos = 0;
 
+  // Una sola vez (botón «completar_municipios»): vuelve a leer los ZIP mensuales solo para añadir el municipio
+  // a las licitaciones guardadas antes de que se recogiera. No cambia nada más (ni fechas, ni estados).
+  if (process.env.COMPLETAR_MUNICIPIOS === '1') {
+    for (const feed of FEEDS) {
+      try {
+        log(`${feed.nombre}: completando municipios con los ZIP mensuales`);
+        const cambios = new Map();
+        await cargaInicialZip(feed, cambios, { masReciente: '1970-01-01T00:00:00Z' });
+        let n = 0;
+        for (const [id, { leida }] of cambios) {
+          const x = leida && porId.get(id);
+          if (!x || x.om || x.m) continue;
+          for (const k of ['m', 'mz', 'om', 'oz']) if (leida.item[k]) x[k] = leida.item[k];
+          if (x.om || x.m) n++;
+        }
+        log(`  ${n} licitaciones completadas con su municipio`);
+      } catch (e) {
+        log(`  no se pudieron completar los municipios de ${feed.clave}: ${e.message}`);
+      }
+    }
+  }
+
   for (const feed of FEEDS) {
     const previo = fuentesMeta[feed.clave];
     try {
@@ -488,6 +529,15 @@ async function main() {
   if (fallos === FEEDS.length) {
     console.error('No se pudo leer ninguna fuente. No se guarda nada.');
     process.exit(1);
+  }
+
+  // Las licitaciones antiguas, sin municipio: se toma el de la sede del mismo organismo si ya lo conocemos.
+  const sedes = new Map();
+  for (const x of porId.values()) if (x.om && x.o && !sedes.has(x.o)) sedes.set(x.o, [x.om, x.oz]);
+  for (const x of porId.values()) {
+    if (x.om || !x.o || !sedes.has(x.o)) continue;
+    const [om, oz] = sedes.get(x.o);
+    x.om = om; if (oz) x.oz = oz;
   }
 
   // Recalcular estados (una abierta puede haber cerrado plazo) y aplicar el límite del histórico.

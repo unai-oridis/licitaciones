@@ -22,6 +22,10 @@ on:
         description: 'Enviar también las alertas por email al terminar'
         type: boolean
         default: false
+      completar_municipios:
+        description: 'Una sola vez: añadir el municipio a las licitaciones antiguas (tarda 1-2 horas)'
+        type: boolean
+        default: false
       automatico:
         description: 'Uso interno: lo marca el despertador de Cloudflare (no tocar)'
         type: boolean
@@ -56,6 +60,7 @@ jobs:
       - name: Descargar licitaciones
         env:
           MESES_INICIALES: ${{ github.event.inputs.meses_iniciales || '6' }}
+          COMPLETAR_MUNICIPIOS: ${{ github.event.inputs.completar_municipios == 'true' && '1' || '' }}
           NODE_OPTIONS: --max-old-space-size=6144
         run: node scripts/actualizar.mjs
 
