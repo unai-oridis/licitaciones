@@ -11,6 +11,7 @@
 //   /organismos/                           organismos que más licitan
 //   /licitaciones/oficio/{oficio}/         por oficio (electricista, fontanería…; lib/oficios.mjs)
 //   /preguntas/ y /preguntas/{pregunta}/  preguntas frecuentes (lib/preguntas.mjs)
+//   /estadisticas/                         datos propios: competencia, bajadas de precio, sectores, comunidades
 //   /hoy/ y /hoy/{AAAA-MM-DD}/             licitaciones aparecidas en las últimas 24 horas y archivo de los últimos días
 // Las páginas de cada organismo (/organismo/{slug}) tampoco son archivos: functions/organismo/[slug].js.
 //   /js/                                   copia de lib/fichas.mjs y lib/empresas.mjs para el buscador
@@ -196,6 +197,7 @@ async function main() {
   await fs.rm(path.join(RAIZ, 'organismos'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'hoy'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'preguntas'), { recursive: true, force: true });
+  await fs.rm(path.join(RAIZ, 'estadisticas'), { recursive: true, force: true });
   await fs.rm(path.join(RAIZ, 'js'), { recursive: true, force: true });
 
   const codProv = Object.keys(provincias).filter((p) => p !== '00' && p !== '99').sort((a, b) => provincias[a].localeCompare(provincias[b], 'es'));
@@ -230,7 +232,7 @@ async function main() {
   const comunidades = (meta.comunidades || []).filter(([, provs]) => provs.length > 1);
   const paginasListado = codProv.length + comunidades.length + combos.size + 2 + 3 // + /empresas/, sitemaps
     + 3 // /organismos/, su sitemap y /js/organismos.mjs
-    + OFICIOS.length + 1 + DIAS_ARCHIVO + 1 + PREGUNTAS.length + 1
+    + OFICIOS.length + 1 + DIAS_ARCHIVO + 1 + PREGUNTAS.length + 1 + 1
     + GUIAS.length + 1
     + 2 // archivos en /js/
     + sectores.filter((s) => abPorSector.get(s.c).length || adjPorSector.get(s.c).length).length;
@@ -668,13 +670,124 @@ async function main() {
     pieDatos: 'Respuestas informativas. No constituyen asesoramiento jurídico: en cada licitación mandan sus pliegos.',
   }), sitemap, '0.7');
 
+  // --- Estadísticas propias /estadisticas/
+  {
+    const pct = (a, b) => (b ? (100 * a / b) : 0);
+    const fmtPct = (v) => `${v.toLocaleString('es-ES', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} %`;
+    const mediana = (l) => { if (!l.length) return 0; const o = [...l].sort((a, b) => a - b); return o[o.length >> 1]; };
+    const media = (l) => (l.length ? l.reduce((a, b) => a + b, 0) / l.length : 0);
+    const barra = (v, max) => `<span class="dato-barra"><i style="width:${max ? Math.max(1, Math.round(100 * v / max)) : 0}%"></i></span>`;
+    const presupuestoAbierto = abiertas.reduce((t, x) => t + (x.i || 0), 0);
+    // Adjudicaciones de un solo lote con número de ofertas conocido: competencia y bajada de precio
+    const simples = adjudicadas.filter((x) => (x.nad || x.ad.length) === 1 && x.ad[0][2] > 0);
+    const ofertas = simples.map((x) => x.ad[0][2]);
+    const bajada = (x) => { const r = 1 - x.ad[0][1] / x.i; return x.i > 0 && x.ad[0][1] > 0 && r >= 0 && r < 0.7 ? r : null; };
+    const bajadas = simples.map(bajada).filter((r) => r != null);
+    const unaOferta = pct(ofertas.filter((o) => o === 1).length, ofertas.length);
+    const importeAdj = adjudicadas.reduce((t, x) => t + x.ad.reduce((u, a) => u + (a[1] || 0), 0), 0);
+    // Por tipo de contrato (en plazo)
+    const tipos = meta.tipos || {};
+    const porTipo = new Map();
+    for (const x of abiertas) { const k = tipos[x.tc] || 'Otros'; const e = porTipo.get(k) || [0, 0]; e[0]++; e[1] += x.i || 0; porTipo.set(k, e); }
+    const filasTipo = [...porTipo].sort((a, b) => b[1][0] - a[1][0]);
+    const maxTipo = filasTipo[0]?.[1][0] || 1;
+    // Por comunidad autónoma (en plazo)
+    const filasCom = (meta.comunidades || []).map(([com, provs]) => {
+      const l = abiertas.filter((x) => provs.includes(x.p));
+      return [com, l.length, l.reduce((t, x) => t + (x.i || 0), 0)];
+    }).sort((a, b) => b[1] - a[1]);
+    const maxCom = filasCom[0]?.[1] || 1;
+    // Competencia por sector
+    const filasSector = sectores.filter((sc) => sc.c.length === 2).map((sc) => {
+      const l = simples.filter((x) => enSector(x, sc.c));
+      const of = l.map((x) => x.ad[0][2]);
+      const b = l.map(bajada).filter((r) => r != null);
+      return [sc, l.length, media(of), pct(of.filter((o) => o === 1).length, of.length), mediana(b)];
+    }).filter((f) => f[1] >= 200).sort((a, b) => b[1] - a[1]).slice(0, 15);
+    // Publicadas por mes (solo meses completos)
+    const mesActual = AHORA_MADRID.slice(0, 7);
+    const porMes = new Map();
+    for (const x of todas) { const k = String(x.fp || '').slice(0, 7); if (/^\d{4}-\d{2}$/.test(k)) porMes.set(k, (porMes.get(k) || 0) + 1); }
+    const meses = [...porMes].filter(([k]) => k < mesActual).sort().slice(-5);
+    // Los meses en el límite del histórico de 6 meses están incompletos: se quita el primero si es claramente menor
+    if (meses.length > 2 && meses[0][1] < 0.5 * meses[1][1]) meses.shift();
+    const maxMes = Math.max(1, ...meses.map(([, k]) => k));
+    const nombreMes = (k) => new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(k + '-15T12:00:00Z'));
+    const topOrg = [...organismos].sort((a, b) => b[1].n - a[1].n).slice(0, 10);
+    const topEmp = [...empresas].sort((a, b) => b[1].n - a[1].n).slice(0, 10);
+    const fechaDatos = fechaLarga.format(new Date(meta.actualizado));
+
+    const cuerpo = `
+  <h1>Estadísticas de la contratación pública en España</h1>
+  <p class="intro">Datos propios de LicitaEmpresa calculados a partir de todas las licitaciones publicadas en la Plataforma de Contratación del Sector Público y las plataformas autonómicas que agrega. Se actualizan automáticamente cada día. Datos a ${esc(fechaDatos)}.</p>
+  <section class="cifras">
+    <div><b>${numero.format(abiertas.length)}</b><span>licitaciones en plazo ahora</span></div>
+    <div><b>${euros.format(presupuestoAbierto)}</b><span>en juego, sin IVA</span></div>
+    <div><b>${numero.format(adjudicadas.length)}</b><span>adjudicaciones en los últimos 6 meses</span></div>
+    <div><b>${fmtPct(unaOferta)}</b><span>de los contratos se adjudica con una sola oferta</span></div>
+    <div><b>${media(ofertas).toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b><span>ofertas por contrato, de media</span></div>
+    <div><b>${fmtPct(100 * mediana(bajadas))}</b><span>bajada mediana sobre el presupuesto</span></div>
+  </section>
+
+  <h2>Competencia y bajada de precio por sector</h2>
+  <p class="intro-adj">Adjudicaciones de los últimos 6 meses con un solo lote. Cuantas menos ofertas, menos competencia: más oportunidades para entrar.</p>
+  <div class="tabla-scroll"><table class="tabla-datos"><thead><tr><th>Sector</th><th>Adjudicaciones</th><th>Ofertas de media</th><th>Con una sola oferta</th><th>Bajada mediana</th></tr></thead><tbody>
+  ${filasSector.map(([sc, n, m, u, b]) => `<tr><td><a href="${rutaSector(sc)}">${esc(sc.n)}</a></td><td>${numero.format(n)}</td><td>${m.toLocaleString('es-ES', { maximumFractionDigits: 1 })}</td><td>${fmtPct(u)}</td><td>${fmtPct(100 * b)}</td></tr>`).join('')}
+  </tbody></table></div>
+
+  <h2>Licitaciones en plazo por comunidad autónoma</h2>
+  <div class="tabla-scroll"><table class="tabla-datos"><thead><tr><th>Comunidad</th><th>En plazo</th><th></th><th>Presupuesto sin IVA</th></tr></thead><tbody>
+  ${filasCom.map(([c, n, imp]) => `<tr><td>${esc(c)}</td><td>${numero.format(n)}</td><td class="col-barra">${barra(n, maxCom)}</td><td>${euros.format(imp)}</td></tr>`).join('')}
+  </tbody></table></div>
+
+  <h2>Licitaciones en plazo por tipo de contrato</h2>
+  <div class="tabla-scroll"><table class="tabla-datos"><thead><tr><th>Tipo</th><th>En plazo</th><th></th><th>Presupuesto sin IVA</th></tr></thead><tbody>
+  ${filasTipo.map(([k, [n, imp]]) => `<tr><td>${esc(k)}</td><td>${numero.format(n)}</td><td class="col-barra">${barra(n, maxTipo)}</td><td>${euros.format(imp)}</td></tr>`).join('')}
+  </tbody></table></div>
+
+  ${meses.length ? `<h2>Licitaciones publicadas por mes</h2>
+  <div class="tabla-scroll"><table class="tabla-datos"><thead><tr><th>Mes</th><th>Publicadas</th><th></th></tr></thead><tbody>
+  ${meses.map(([k, n]) => `<tr><td>${esc(nombreMes(k))}</td><td>${numero.format(n)}</td><td class="col-barra">${barra(n, maxMes)}</td></tr>`).join('')}
+  </tbody></table></div>` : ''}
+
+  <h2>Organismos que más licitan</h2>
+  <ol class="ranking">${topOrg.map(([sl, o]) => `<li><a href="/organismo/${sl}">${esc(o.nombre)}</a> <span>${numero.format(o.n)} licitaciones</span></li>`).join('')}</ol>
+  <p class="volver"><a href="/organismos/">Ver el ranking completo de organismos</a></p>
+
+  <h2>Empresas con más adjudicaciones</h2>
+  <ol class="ranking">${topEmp.map(([sl, e]) => `<li><a href="/empresa/${sl}">${esc(e.nombre)}</a> <span>${numero.format(e.n)} adjudicaciones</span></li>`).join('')}</ol>
+  <p class="volver"><a href="/empresas/">Ver el ranking completo de empresas</a></p>
+
+  <h2>Metodología</h2>
+  <ul class="metodo">
+    <li><strong>Fuente:</strong> Plataforma de Contratación del Sector Público (Ministerio de Hacienda), incluidas las plataformas autonómicas que agrega. No incluye contratos menores.</li>
+    <li><strong>Periodo:</strong> licitaciones publicadas o actualizadas en los últimos 6 meses.</li>
+    <li><strong>Competencia y bajada:</strong> solo adjudicaciones de un único lote con el número de ofertas publicado. La bajada compara el importe adjudicado con el presupuesto base (sin IVA) y descarta valores imposibles (negativos o superiores al 70 %), que suelen deberse a errores de origen.</li>
+    <li><strong>Importes:</strong> tal como los publica cada órgano de contratación, sin IVA.</li>
+  </ul>
+  <h2>Cómo citar estos datos</h2>
+  <p>Puedes usar y publicar estas cifras citando la fuente: <em>«Fuente: LicitaEmpresa (licitaempresa.es/estadisticas), a partir de datos de la Plataforma de Contratación del Sector Público»</em>. Si eres periodista o investigador y necesitas otro cruce de datos, escríbenos a <a href="mailto:contacto@licitaempresa.es">contacto@licitaempresa.es</a>.</p>`;
+    await escribir('/estadisticas/', pagina({
+      ruta: '/estadisticas/', titulo: 'Estadísticas de la contratación pública en España',
+      descripcion: `${fmtPct(unaOferta)} de los contratos públicos se adjudica con una sola oferta. Datos actualizados a diario: licitaciones por sector y comunidad, competencia, bajadas de precio y rankings.`,
+      migas: [['Inicio', '/'], ['Estadísticas', '/estadisticas/']],
+      cuerpo,
+      ldExtra: { '@context': 'https://schema.org', '@type': 'Dataset', name: 'Estadísticas de la contratación pública en España',
+        description: 'Licitaciones en plazo, adjudicaciones, competencia (ofertas por contrato) y bajadas de precio por sector y comunidad autónoma, calculadas a partir de la Plataforma de Contratación del Sector Público.',
+        url: `${SITIO}/estadisticas/`, dateModified: meta.actualizado, inLanguage: 'es', isAccessibleForFree: true,
+        creator: { '@type': 'Organization', name: 'LicitaEmpresa', url: SITIO },
+        isBasedOn: 'https://contrataciondelestado.es', spatialCoverage: 'España', temporalCoverage: 'Últimos 6 meses' },
+      actualizado,
+    }), sitemap, '0.8');
+  }
+
   // --- Código compartido para el buscador (enlaces a fichas y empresas)
   await fs.mkdir(path.join(RAIZ, 'js'), { recursive: true });
   for (const f of ['fichas.mjs', 'empresas.mjs', 'organismos.mjs']) await fs.copyFile(new URL(`../lib/${f}`, import.meta.url), path.join(RAIZ, 'js', f));
 
   // --- sitemaps (máximo 50.000 direcciones por archivo)
   const hoy = AHORA.toISOString().slice(0, 10);
-  const urls = [['/', '1.0'], ...sitemap, ['/anunciate', '0.3'], ['/aviso-legal', '0.2'], ['/privacidad', '0.2'], ['/cookies', '0.2']];
+  const urls = [['/', '1.0'], ...sitemap, ['/sobre', '0.5'], ['/anunciate', '0.3'], ['/aviso-legal', '0.2'], ['/privacidad', '0.2'], ['/cookies', '0.2']];
   const urlsEmpresas = [...empresas.keys()].sort().map((s) => [`/empresa/${s}`, '0.4']);
   const urlsOrganismos = [...organismos.keys()].sort().map((s) => [`/organismo/${s}`, '0.5']);
   const xml = (lista) => `<?xml version="1.0" encoding="UTF-8"?>
