@@ -112,6 +112,15 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 .check { display: flex; gap: 8px; align-items: flex-start; font-size: 15px; cursor: pointer; }
 .check input { margin-top: 4px; accent-color: var(--accent); width: 16px; height: 16px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.hero-prov { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 14px 0 0; max-width: 860px; }
+.hero-prov[hidden] { display: none; }
+.hero-prov-tit { font-size: 15px; font-weight: 700; color: var(--muted); }
+.hero-prov-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.hero-prov .chip { background: var(--accent); color: var(--accent-ink); font-size: 16px; padding: 7px 8px 7px 16px; box-shadow: 0 2px 8px rgba(10, 122, 143, .25); }
+.hero-prov .chip span[aria-hidden] { width: 24px; height: 24px; background: rgba(255, 255, 255, .22); color: var(--accent-ink); }
+.hero-prov .chip:hover span[aria-hidden] { background: rgba(255, 255, 255, .4); }
+.hero-prov .quitar-todas { background: none; border: 0; padding: 4px 2px; color: var(--accent); font-size: 14px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.busca select.con-prov { color: var(--accent); font-weight: 700; }
 .chip { display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer; background: var(--accent-soft); color: var(--accent-soft-ink);
   border-radius: 999px; padding: 5px 7px 5px 13px; font-size: 14px; font-weight: 600; }
 .chip span[aria-hidden] { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); font-size: 15px; line-height: 1; }
@@ -283,8 +292,7 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     <select id="provSelect"><option value="">Toda España</option></select>
     <button type="submit">Buscar</button>
   </form>
-  <p class="sectores-tit" id="sectoresTit" hidden>O empieza por un sector:</p>
-  <div class="sectores" id="sectores"></div>
+  <div class="hero-prov" id="heroProv" hidden><span class="hero-prov-tit">Buscando en</span><span id="heroProvChips" class="hero-prov-chips"></span></div>
 </section>
 </div>
 
@@ -612,7 +620,13 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     $('provChips').innerHTML = f.prov.map((p) =>
       `<button type="button" class="chip" data-prov="${p}" aria-label="Quitar ${esc(meta.provincias?.[p] || p)}">${esc(meta.provincias?.[p] || p)}<span aria-hidden="true">×</span></button>`).join('');
     $('chipsActivos').classList.toggle('sin-chips', !f.cpv.length && !f.prov.length);
-    $('provSelect').options[0].textContent = f.prov.length ? 'Añadir otra provincia…' : 'Toda España';
+    $('provSelect').options[0].textContent = f.prov.length ? '+ Añadir otra provincia' : 'Toda España';
+    $('provSelect').classList.toggle('con-prov', f.prov.length > 0);
+    // Provincias elegidas, bien visibles justo debajo del buscador
+    $('heroProv').hidden = !f.prov.length;
+    $('heroProvChips').innerHTML = f.prov.map((p) =>
+      `<button type="button" class="chip" data-prov="${p}" aria-label="Quitar ${esc(meta.provincias?.[p] || p)}">📍 ${esc(meta.provincias?.[p] || p)}<span aria-hidden="true">×</span></button>`).join('')
+      + (f.prov.length > 1 ? '<button type="button" class="quitar-todas" id="quitarProvs">Toda España</button>' : '');
     $('texto').value = f.q; $('tipo').value = f.tipo; $('minimo').value = f.min; $('maximo').value = f.max;
     $('dias').value = f.dias; $('ocultarSinFecha').checked = f.sinFecha; $('incluirEstatal').checked = f.estatal; $('orden').value = f.orden;
   }
@@ -635,16 +649,11 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
 
   function cambiar() { pintarControles(); escribirURL(); filtrar(); }
 
-  // Accesos rápidos por sector en la bienvenida, con las licitaciones en plazo de cada uno
-  const SECTORES_PORTADA = [['45', 'Obras'], ['85', 'Salud y asistencia social'], ['72', 'Informática'], ['50', 'Mantenimiento'],
-    ['71', 'Ingeniería y arquitectura'], ['909', 'Limpieza'], ['60', 'Transporte'], ['55', 'Hostelería'], ['79', 'Servicios a empresas'], ['90', 'Residuos y medio ambiente']];
+  // Cifras de la bienvenida: licitaciones en plazo y nuevas en las últimas 24 h
   function pintarSectores() {
     const items = cargados.get(meta.archivos?.abiertas?.f) || [];
     const ahora = ahoraMadrid();
     const vivos = items.filter((x) => x.g === 'A' && (!x.f || x.f >= ahora));
-    const lista = SECTORES_PORTADA.map(([c, n]) => [c, n, vivos.filter((x) => x.c.some((k) => k.startsWith(c))).length]).filter(([, , k]) => k > 0);
-    $('sectores').innerHTML = lista.map(([c, n, k]) => `<button type="button" class="sector" data-c="${c}">${esc(n)}<span>${fmtNum.format(k)}</span></button>`).join('');
-    $('sectoresTit').hidden = !lista.length;
     const nuevas = vivos.filter((x) => x.vt && Date.parse(x.vt + ':00Z') > Date.now() - 864e5).length;
     if (vivos.length) $('estadoDatos').innerHTML = `Ahora hay <strong>${fmtNum.format(vivos.length)}</strong> licitaciones en plazo · actualizado ${haceCuanto(meta.actualizado)}`
       + (nuevas ? ` · <a href="/hoy/">${fmtNum.format(nuevas)} nuevas en las últimas 24 h</a>` : '');
@@ -671,6 +680,7 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
       const chip = e.target.closest('.chip');
       if (chip?.dataset.cpv) { f.cpv = f.cpv.filter((c) => c !== chip.dataset.cpv); cambiar(); }
       if (chip?.dataset.prov) { f.prov = f.prov.filter((p) => p !== chip.dataset.prov); cambiar(); }
+      if (e.target.closest('#quitarProvs')) { f.prov = []; cambiar(); }
       const seguir = e.target.closest('.seguir');
       if (seguir) { abrirAlerta('empresa', seguir.dataset.emp); return; }
       const cpv = e.target.closest('.cpv');
@@ -687,13 +697,6 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     $('formBusca').addEventListener('submit', (e) => {
       e.preventDefault();
       f.q = $('texto').value.trim(); escribirURL(); filtrar();
-      $('resultados').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    });
-    $('sectores').addEventListener('click', (e) => {
-      const b = e.target.closest('.sector');
-      if (!b) return;
-      if (!f.cpv.includes(b.dataset.c)) f.cpv.push(b.dataset.c);
-      cambiar();
       $('resultados').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     });
     $('verFiltros').addEventListener('click', () => {
@@ -758,7 +761,10 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     resultado.sort(orden);
 
     const n = resultado.length;
-    const sufijo = soloAbiertas() ? ' en plazo' : '';
+    const nombresProv = f.prov.map((p) => meta.provincias?.[p] || p);
+    const dondeTxt = !nombresProv.length ? '' : nombresProv.length === 1 ? ` en ${esc(nombresProv[0])}`
+      : nombresProv.length === 2 ? ` en ${esc(nombresProv[0])} y ${esc(nombresProv[1])}` : ` en ${nombresProv.length} provincias`;
+    const sufijo = (soloAbiertas() ? ' en plazo' : '') + dondeTxt;
     $('recuento').innerHTML = `<strong>${fmtNum.format(n)}</strong> ${n === 1 ? 'licitación' : 'licitaciones'}${sufijo}`;
     const activos = f.cpv.length + f.prov.length + ['q','tipo','min','max','dias'].filter((k) => f[k]).length + (f.sinFecha ? 1 : 0) + (soloAbiertas() ? 0 : 1);
     $('verFiltros').textContent = activos ? `Filtros (${activos})` : 'Filtros';
