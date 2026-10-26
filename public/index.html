@@ -121,7 +121,9 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 .hero-prov .chip:hover span[aria-hidden] { background: rgba(255, 255, 255, .4); }
 .hero-prov .quitar-todas { background: none; border: 0; padding: 4px 2px; color: var(--accent); font-size: 14px; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .busca select.con-prov { color: var(--accent); font-weight: 700; }
-.cpv-codigo { margin-top: 8px; }
+.cpv-codigo, .cpv-sub { margin-top: 8px; }
+.cpv-sub { color: var(--accent); font-weight: 600; }
+.cpv-sub[hidden] { display: none; }
 .c-cpv, .c-tipo, .c-importe, .c-dias { align-self: start; }
 .cpv-codigo[hidden] { display: none; }
 .chip { display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer; background: var(--accent-soft); color: var(--accent-soft-ink);
@@ -316,6 +318,7 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     <div class="campo c-cpv">
       <label for="cpvSelect">Sector o código CPV</label>
       <select id="cpvSelect"><option value="">Todos los sectores</option></select>
+      <select id="cpvSub" class="cpv-sub" hidden aria-label="Concretar el sector"></select>
       <input type="text" id="cpvEntrada" class="cpv-codigo" hidden placeholder="Código, p. ej. 45233, e Intro" autocomplete="off" inputmode="numeric"
         title="«55» incluye todos los códigos que empiezan por 55.">
     </div>
@@ -472,6 +475,30 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     ['92','Ocio, cultura y deporte'],['98','Otros servicios comunitarios y personales'],
   ];
   const nombreCPV = new Map(CPV_SECTORES);
+  // Subsectores (grupos CPV de 3 cifras), en /cpv-grupos.json; se cargan la primera vez que hacen falta
+  let gruposCPV = null, sectorActivo = '';
+  async function cargarGrupos() {
+    if (gruposCPV) return gruposCPV;
+    try {
+      gruposCPV = await (await fetch('/cpv-grupos.json')).json();
+      for (const l of Object.values(gruposCPV)) for (const [c, n] of l) if (!nombreCPV.has(c)) nombreCPV.set(c, n);
+    } catch { gruposCPV = {}; }
+    return gruposCPV;
+  }
+  async function pintarSub() {
+    const sel = $('cpvSub');
+    // El sector activo deja de estarlo si ya no queda ningún código suyo elegido
+    if (sectorActivo && !f.cpv.some((c) => c.startsWith(sectorActivo))) sectorActivo = '';
+    if (!sectorActivo) { sel.hidden = true; return; }
+    const grupos = (await cargarGrupos())[sectorActivo] || [];
+    const libres = grupos.filter(([c]) => !f.cpv.includes(c));
+    if (!libres.length) { sel.hidden = true; return; }
+    const general = f.cpv.includes(sectorActivo);
+    sel.innerHTML = `<option value="">${general ? `↳ Concretar ${sectorActivo}: elige subsector` : `↳ Añadir otro subsector de ${sectorActivo}`}</option>`
+      + libres.map(([c, n]) => `<option value="${c}">${c} · ${esc(n)}</option>`).join('');
+    sel.hidden = false;
+    pintarControlesChips();
+  }
   const GRUPOS = [
     ['A', 'En plazo'], ['P', 'Anuncio previo'], ['E', 'En evaluación'],
     ['J', 'Adjudicadas'], ['F', 'Formalizadas'], ['N', 'Anuladas o desiertas'],
@@ -596,8 +623,8 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
   // ---------- controles ----------
   function prepararControles() {
     $('cpvSelect').innerHTML = '<option value="">Todos los sectores</option>'
-      + CPV_SECTORES.map(([c, n]) => `<option value="${c}">${c.length > 2 ? '\u00a0\u00a0· ' : ''}${esc(n)}</option>`).join('')
-      + '<option value="otro">Escribir otro código CPV…</option>';
+      + '<option value="otro">✎ Escribir un código CPV…</option>'
+      + CPV_SECTORES.filter(([c]) => c.length === 2).map(([c, n]) => `<option value="${c}">${c} · ${esc(n)}</option>`).join('');
 
     let html = '<option value="">Toda España</option>';
     for (const [com, provs] of meta.comunidades || []) {
@@ -616,12 +643,18 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
       `<button type="button" class="estado-btn" data-g="${g}" aria-pressed="false">${esc(n)}${tot[g] ? ` <small>${fmtNum.format(tot[g])}</small>` : ''}</button>`).join('');
   }
 
+  function pintarControlesChips() {
+    if (!gruposCPV && f.cpv.some((c) => c.length > 2 && !nombreCPV.has(c))) cargarGrupos().then(pintarControlesChips);
+    $('cpvChips').innerHTML = f.cpv.map((c) =>
+      `<button type="button" class="chip" data-cpv="${c}" aria-label="Quitar CPV ${c}">${c}${nombreCPV.has(c) ? ' ' + esc(nombreCPV.get(c)) : ''}<span aria-hidden="true">×</span></button>`).join('');
+  }
+
   function pintarControles() {
     for (const b of $('estados').querySelectorAll('.estado-btn')) b.setAttribute('aria-pressed', f.est.includes(b.dataset.g));
     $('periodo').value = f.per;
     $('periodo').disabled = soloAbiertas();
-    $('cpvChips').innerHTML = f.cpv.map((c) =>
-      `<button type="button" class="chip" data-cpv="${c}" aria-label="Quitar CPV ${c}">${c}${nombreCPV.has(c) ? ' ' + esc(nombreCPV.get(c)) : ''}<span aria-hidden="true">×</span></button>`).join('');
+    pintarControlesChips();
+    pintarSub();
     $('provChips').innerHTML = f.prov.map((p) =>
       `<button type="button" class="chip" data-prov="${p}" aria-label="Quitar ${esc(meta.provincias?.[p] || p)}">${esc(meta.provincias?.[p] || p)}<span aria-hidden="true">×</span></button>`).join('');
     $('chipsActivos').classList.toggle('sin-chips', !f.cpv.length && !f.prov.length);
@@ -670,8 +703,17 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     $('cpvSelect').addEventListener('change', (e) => {
       const v = e.target.value;
       if (v === 'otro') { $('cpvEntrada').hidden = false; $('cpvEntrada').focus(); }
-      else if (v && !f.cpv.includes(v)) { f.cpv.push(v); cambiar(); }
+      else if (v) { sectorActivo = v; if (!f.cpv.includes(v)) f.cpv.push(v); cambiar(); }
       e.target.value = '';
+    });
+    // Subsector: sustituye al sector general por el código más concreto (551 en vez de 55)
+    $('cpvSub').addEventListener('change', (e) => {
+      const g = e.target.value;
+      if (!g) return;
+      f.cpv = f.cpv.filter((c) => c !== sectorActivo);
+      if (!f.cpv.includes(g)) f.cpv.push(g);
+      e.target.value = '';
+      cambiar();
     });
     $('cpvEntrada').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); añadirCPV(e.target.value); } });
     $('cpvEntrada').addEventListener('change', (e) => { if (/^\d{2,}\s\S/.test(e.target.value)) añadirCPV(e.target.value); });
