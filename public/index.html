@@ -121,6 +121,9 @@ input:focus, select:focus { border-color: var(--accent); background: var(--surfa
 .hero-prov .chip:hover span[aria-hidden] { background: rgba(255, 255, 255, .4); }
 .hero-prov .quitar-todas { background: none; border: 0; padding: 4px 2px; color: var(--accent); font-size: 14px; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .busca select.con-prov { color: var(--accent); font-weight: 700; }
+.cpv-codigo { margin-top: 8px; }
+.c-cpv, .c-tipo, .c-importe, .c-dias { align-self: start; }
+.cpv-codigo[hidden] { display: none; }
 .chip { display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer; background: var(--accent-soft); color: var(--accent-soft-ink);
   border-radius: 999px; padding: 5px 7px 5px 13px; font-size: 14px; font-weight: 600; }
 .chip span[aria-hidden] { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); font-size: 15px; line-height: 1; }
@@ -311,10 +314,10 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
       </select>
     </div>
     <div class="campo c-cpv">
-      <label for="cpvEntrada">Sector o código CPV</label>
-      <input type="text" id="cpvEntrada" list="cpvLista" placeholder="Ej.: 909 o limpieza, e Intro" autocomplete="off"
-        title="Escribe un código o un sector y pulsa Intro. «55» incluye todos los códigos que empiezan por 55.">
-      <datalist id="cpvLista"></datalist>
+      <label for="cpvSelect">Sector o código CPV</label>
+      <select id="cpvSelect"><option value="">Todos los sectores</option></select>
+      <input type="text" id="cpvEntrada" class="cpv-codigo" hidden placeholder="Código, p. ej. 45233, e Intro" autocomplete="off" inputmode="numeric"
+        title="«55» incluye todos los códigos que empiezan por 55.">
     </div>
     <div class="campo c-tipo">
       <label for="tipo">Tipo de contrato</label>
@@ -592,7 +595,9 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
 
   // ---------- controles ----------
   function prepararControles() {
-    $('cpvLista').innerHTML = CPV_SECTORES.map(([c, n]) => `<option value="${c} ${esc(n)}"></option>`).join('');
+    $('cpvSelect').innerHTML = '<option value="">Todos los sectores</option>'
+      + CPV_SECTORES.map(([c, n]) => `<option value="${c}">${c.length > 2 ? '\u00a0\u00a0· ' : ''}${esc(n)}</option>`).join('')
+      + '<option value="otro">Escribir otro código CPV…</option>';
 
     let html = '<option value="">Toda España</option>';
     for (const [com, provs] of meta.comunidades || []) {
@@ -622,6 +627,7 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     $('chipsActivos').classList.toggle('sin-chips', !f.cpv.length && !f.prov.length);
     $('provSelect').options[0].textContent = f.prov.length ? '+ Añadir otra provincia' : 'Toda España';
     $('provSelect').classList.toggle('con-prov', f.prov.length > 0);
+    $('cpvSelect').options[0].textContent = f.cpv.length ? '+ Añadir otro sector' : 'Todos los sectores';
     // Provincias elegidas, bien visibles justo debajo del buscador
     $('heroProv').hidden = !f.prov.length;
     $('heroProvChips').innerHTML = f.prov.map((p) =>
@@ -644,6 +650,7 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     $('cpvEntrada').setCustomValidity('');
     if (!f.cpv.includes(codigo)) f.cpv.push(codigo);
     $('cpvEntrada').value = '';
+    $('cpvEntrada').hidden = true;
     cambiar();
   }
 
@@ -660,6 +667,12 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
   }
 
   function enlazar() {
+    $('cpvSelect').addEventListener('change', (e) => {
+      const v = e.target.value;
+      if (v === 'otro') { $('cpvEntrada').hidden = false; $('cpvEntrada').focus(); }
+      else if (v && !f.cpv.includes(v)) { f.cpv.push(v); cambiar(); }
+      e.target.value = '';
+    });
     $('cpvEntrada').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); añadirCPV(e.target.value); } });
     $('cpvEntrada').addEventListener('change', (e) => { if (/^\d{2,}\s\S/.test(e.target.value)) añadirCPV(e.target.value); });
     $('cpvEntrada').addEventListener('input', (e) => e.target.setCustomValidity(''));
