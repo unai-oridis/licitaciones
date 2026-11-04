@@ -38,7 +38,9 @@ export async function onRequestPost({ request, env }) {
     .bind(id, email, JSON.stringify(filtros), ahora(), TEXTO_CONSENTIMIENTO).run();
 
   const sitio = env.SITIO || new URL(request.url).origin;
-  const correo = emailConfirmacion({ sitio, id, filtros });
+  // Cuántas licitaciones en plazo encajan ya (lo calcula la web con los mismos filtros); solo para el texto del email
+  const n = Math.max(0, Math.min(100000, Math.round(Number(body.n) || 0)));
+  const correo = emailConfirmacion({ sitio, id, filtros, n });
   const r = await enviarEmail(env, { para: email, ...correo });
   if (!r.ok) {
     await env.DB.prepare('DELETE FROM alertas WHERE id = ?').bind(id).run();

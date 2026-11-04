@@ -267,6 +267,15 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
 .dlg-mensaje.error { color: var(--urgent); }
 .dlg-mensaje.ok { color: var(--ink); font-size: 15px; }
 .dlg-botones { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.dlg-hecho { text-align: center; padding: 6px 4px 0; }
+.dlg-hecho[hidden] { display: none; }
+.dlg-hecho-icono { font-size: 44px; line-height: 1; margin-bottom: 10px; }
+.dlg-hecho .dlg-hecho-tit { font-size: 21px; font-weight: 800; line-height: 1.25; margin: 0 0 10px; }
+.dlg-hecho p { margin: 0 0 12px; font-size: 15px; }
+.dlg-hecho-aviso { background: var(--sol-suave, #FFF4D6); border-radius: 12px; padding: 12px 14px; font-size: 14px !important; }
+.dlg-hecho-botones a { text-decoration: none; }
+.dlg-hecho-botones { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 16px 0 4px; }
+.boton-texto { background: none; border: 0; color: var(--accent); font: inherit; font-size: 14px; font-weight: 600; text-decoration: underline; cursor: pointer; padding: 8px 4px; }
 .dlg-tipo { display: grid; gap: 8px; margin: 4px 0 16px; }
 .tipo-op { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; font-size: 14px; line-height: 1.4; }
 .tipo-op:has(input:checked) { border-color: var(--accent); background: var(--cielo); }
@@ -413,6 +422,18 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
         <span>He leído la <a href="privacidad.html" target="_blank">política de privacidad</a> y acepto recibir un email diario con las novedades (licitaciones nuevas o adjudicaciones) que coincidan con esta alerta. Puedo darme de baja en cualquier momento.</span></label>
     </div>
     <p class="dlg-mensaje" id="dlgMensaje" role="status" aria-live="polite"></p>
+    <div class="dlg-hecho" id="dlgHecho" hidden>
+      <div class="dlg-hecho-icono" aria-hidden="true">✉️</div>
+      <p class="dlg-hecho-tit">Último paso: activa la alerta desde tu email</p>
+      <p>Te hemos enviado un email a <strong id="hechoEmail"></strong>. Ábrelo y pulsa <strong>«Activar mi alerta»</strong>. Sin ese clic no recibirás nada.</p>
+      <p class="dlg-hecho-aviso">¿No lo ves en 2 minutos? Mira en <strong>Promociones</strong> o en <strong>Spam</strong> y márcalo como «No es spam».</p>
+      <div class="dlg-hecho-botones">
+        <a class="boton boton-principal" id="hechoAbrir" target="_blank" rel="noopener" hidden>Abrir mi correo</a>
+        <button type="button" class="boton" id="hechoReenviar">Reenviar el email</button>
+        <button type="button" class="boton-texto" id="hechoCambiar">Me he equivocado de email</button>
+      </div>
+      <p class="dlg-mensaje" id="hechoMensaje" role="status" aria-live="polite"></p>
+    </div>
     <div class="dlg-botones">
       <button type="button" class="boton" id="dlgCerrar">Cancelar</button>
       <button type="submit" class="boton boton-principal" id="dlgEnviar">Crear alerta</button>
@@ -944,6 +965,7 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     $('dlgEnviar').hidden = !valida;
     $('dlgCerrar').textContent = valida ? 'Cancelar' : 'Entendido';
     $('dlgMensaje').textContent = ''; $('dlgMensaje').className = 'dlg-mensaje';
+    $('dlgHecho').hidden = true; document.querySelector('.dlg-tipo').hidden = false; $('dlgTitulo').hidden = false;
     return valida;
   }
   function abrirAlerta(modo = 'filtros', emp = '') {
@@ -955,6 +977,39 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     if (modo === 'empresa' && !$('alertaEmpresa').value) $('alertaEmpresa').focus();
     else if (valida) $('alertaEmail').focus();
   }
+  // Licitaciones en plazo que encajan ahora con los filtros (para el email de activación)
+  const enPlazoAhora = () => resultado.filter((x) => x._g === 'A').length;
+  // Proveedores de correo más comunes: botón para abrir el buzón directamente
+  function enlaceCorreo(email) {
+    const d = email.split('@')[1] || '';
+    if (/^(gmail|googlemail)\./.test(d)) return 'https://mail.google.com/mail/u/0/#search/LicitaEmpresa';
+    if (/^(hotmail|outlook|live|msn)\./.test(d)) return 'https://outlook.live.com/mail/0/';
+    if (/^(yahoo|ymail)\./.test(d)) return 'https://mail.yahoo.com/';
+    if (/^icloud\.|^me\.com$/.test(d)) return 'https://www.icloud.com/mail';
+    return '';
+  }
+  function mostrarHecho(email) {
+    for (const id of ['bloqueFiltros', 'bloqueEmpresa', 'dlgCampos', 'dlgEnviar', 'dlgTitulo']) $(id).hidden = true;
+    document.querySelector('.dlg-tipo').hidden = true;
+    $('hechoEmail').textContent = email;
+    const url = enlaceCorreo(email);
+    $('hechoAbrir').hidden = !url; if (url) $('hechoAbrir').href = url;
+    $('hechoMensaje').textContent = ''; $('hechoMensaje').className = 'dlg-mensaje';
+    $('dlgHecho').hidden = false; $('dlgCerrar').textContent = 'Cerrar';
+  }
+  async function reenviarActivacion() {
+    const m = $('hechoMensaje'); const b = $('hechoReenviar');
+    b.disabled = true; m.className = 'dlg-mensaje'; m.textContent = 'Enviando…';
+    try {
+      const r = await fetch('/api/reenviar', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: $('hechoEmail').textContent, n: enPlazoAhora() }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'No se ha podido reenviar. Inténtalo en unos minutos.');
+      m.className = 'dlg-mensaje ok'; m.textContent = 'Te lo hemos vuelto a enviar. Puede tardar un par de minutos.';
+    } catch (err) { m.className = 'dlg-mensaje error'; m.textContent = err.message; }
+    finally { setTimeout(() => { b.disabled = false; }, 60000); }
+  }
+
   async function enviarAlerta(e) {
     e.preventDefault();
     const msg = $('dlgMensaje');
@@ -969,14 +1024,12 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     try {
       const r = await fetch('/api/alertas', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, acepto: true, filtros: empresa ? { emp } : filtrosAlerta(), web: $('alertaWeb').value }),
+        body: JSON.stringify({ email, acepto: true, filtros: empresa ? { emp } : filtrosAlerta(), web: $('alertaWeb').value, n: empresa ? 0 : enPlazoAhora() }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || 'No se ha podido crear la alerta. Inténtalo más tarde.');
-      msg.className = 'dlg-mensaje ok';
-      msg.innerHTML = `<strong>Casi listo.</strong> Te hemos enviado un email a ${esc(email)}. Pulsa el enlace que contiene para activar la alerta (si no lo ves, mira en spam).`
-        + (d.enlacePrueba ? `<br><a href="${esc(d.enlacePrueba)}">Enlace de prueba para confirmar</a>` : '');
-      $('dlgCampos').hidden = true; $('dlgEnviar').hidden = true; $('dlgCerrar').textContent = 'Cerrar';
+      msg.className = 'dlg-mensaje'; msg.innerHTML = d.enlacePrueba ? `<a href="${esc(d.enlacePrueba)}">Enlace de prueba para confirmar</a>` : '';
+      mostrarHecho(email);
     } catch (err) {
       msg.className = 'dlg-mensaje error'; msg.textContent = err.message;
     } finally {
@@ -1006,6 +1059,8 @@ dialog::backdrop { background: rgba(23, 50, 77, .55); }
     $('alertaCabecera').addEventListener('click', () => abrirAlerta());
     for (const r of document.querySelectorAll('input[name="tipoAlerta"]')) r.addEventListener('change', modoAlerta);
     $('dlgCerrar').addEventListener('click', () => $('dlgAlerta').close());
+    $('hechoReenviar').addEventListener('click', reenviarActivacion);
+    $('hechoCambiar').addEventListener('click', () => { modoAlerta(); $('alertaEmail').select(); $('alertaEmail').focus(); });
     $('formAlerta').addEventListener('submit', enviarAlerta);
   }
 

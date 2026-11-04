@@ -10,7 +10,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { coincide, emailDiario, enviarEmail, normalizarFiltros, esAlertaEmpresa } from '../lib/alertas.mjs';
+import { coincide, emailDiario, enviarEmail, normalizarFiltros, esAlertaEmpresa, emailConfirmacion } from '../lib/alertas.mjs';
 
 const DIR_DATOS = process.env.DIR_DATOS || 'public/data';
 const SITIO = process.env.SITIO || 'https://licitaempresa.es';
@@ -85,9 +85,34 @@ async function main() {
   }
 
   // Borrar las alertas que nadie confirmó en 7 días (no se guardan emails sin consentimiento confirmado).
+  let recordatorios = 0;
   if (!process.env.ALERTAS_JSON) {
     const limite = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 16);
     await d1('DELETE FROM alertas WHERE confirmada = 0 AND creada < ?', [limite]);
+
+    // Recordatorio: un único email a quien creó una alerta hace más de 20 horas y aún no la ha activado.
+    // Si algo falla aquí, se sigue con el envío normal de las alertas.
+    try {
+    try { await d1('ALTER TABLE alertas ADD COLUMN recordatorio TEXT'); } catch { /* ya existe */ }
+    const hace20h = new Date(Date.now() - 20 * 3600e3).toISOString().slice(0, 16);
+    const pendientes = await d1(`SELECT id, email, filtros, creada FROM alertas
+      WHERE confirmada = 0 AND recordatorio IS NULL AND creada < ? AND creada > ? ORDER BY creada DESC`, [hace20h, limite]);
+    const yaConfirmados = new Set((await d1('SELECT DISTINCT email FROM alertas WHERE confirmada = 1')).map((r) => r.email));
+    const vistos = new Set();
+    for (const a of pendientes) {
+      if (vistos.has(a.email)) continue; // una sola vez por persona, con su alerta más reciente
+      vistos.add(a.email);
+      const filtros = normalizarFiltros(JSON.parse(a.filtros || '{}'));
+      // Si ya tiene otra alerta activa, sabe cómo funciona: no se le insiste
+      if (!yaConfirmados.has(a.email)) {
+        const n = esAlertaEmpresa(filtros) ? 0 : abiertas.filter((x) => coincide(x, filtros)).length;
+        const r = await enviarEmail(process.env, { para: a.email, ...emailConfirmacion({ sitio: SITIO, id: a.id, filtros, n, recordatorio: true }) });
+        if (r.ok) recordatorios++; else log(`  fallo enviando un recordatorio: ${r.error}`);
+      }
+      await d1('UPDATE alertas SET recordatorio = ? WHERE email = ? AND confirmada = 0', [AHORA, a.email]);
+    }
+    if (pendientes.length) log(`${recordatorios} recordatorios para activar la alerta enviados`);
+    } catch (e) { log(`No se pudieron enviar los recordatorios: ${e.message}`); }
   }
 
   const alertas = await leerAlertas();
@@ -127,7 +152,7 @@ async function main() {
     if (enviados || !fallos) await guardar('ultimo_envio_diario', hoyMadrid);
     // Resumen para el panel de administración
     await guardar('ultimo_resumen', JSON.stringify({
-      fecha: new Date().toISOString(), alertas: alertas.length, personas: porEmail.size, enviados, sinNovedades, aplazados, fallos,
+      fecha: new Date().toISOString(), alertas: alertas.length, personas: porEmail.size, enviados, sinNovedades, aplazados, fallos, recordatorios,
       licitacionesEnPlazo: abiertas.length,
     }));
   }
