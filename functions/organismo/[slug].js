@@ -1,5 +1,6 @@
 // GET /organismo/{slug}: página de un organismo convocante, montada con los datos de D1
 // (los sube scripts/subir-empresas.mjs en cada actualización).
+import { indexable, ROBOTS_NOINDEX } from '../../lib/indexar.mjs';
 import { paginaOrganismo } from '../../lib/pagina-organismo.mjs';
 
 const CACHE_SEGUNDOS = 3 * 3600;
@@ -26,7 +27,8 @@ export async function onRequestGet({ params, env, request, waitUntil }) {
   try { fichas = await (await env.ASSETS.fetch(new URL('/licitacion/fichas.json', request.url))).json(); } catch {}
 
   const r = new Response(paginaOrganismo(fila, fichas), {
-    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': `public, max-age=600, s-maxage=${CACHE_SEGUNDOS}` },
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': `public, max-age=600, s-maxage=${CACHE_SEGUNDOS}`,
+      ...(indexable('organismo', fila.n) ? {} : { 'x-robots-tag': ROBOTS_NOINDEX }) },
   });
   waitUntil(cache.put(request, r.clone()));
   return r;

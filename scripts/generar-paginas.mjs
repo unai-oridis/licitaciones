@@ -31,6 +31,7 @@ import { GUIAS } from '../lib/guias.mjs';
 import { agruparOrganismos, slugOrganismo, rutaOrganismo } from '../lib/organismos.mjs';
 import { agruparMunicipios, municipioDe, slugMunicipio } from '../lib/municipios.mjs';
 import { opcionesRecuadro } from '../lib/recuadros.mjs';
+import { indexable } from '../lib/indexar.mjs';
 import { OFICIOS, enOficio } from '../lib/oficios.mjs';
 import { PREGUNTAS } from '../lib/preguntas.mjs';
 
@@ -180,7 +181,7 @@ async function escribir(ruta, html, sitemap, prioridad = '0.6', lastmod) {
   const archivo = path.join(RAIZ, ruta, 'index.html');
   await fs.mkdir(path.dirname(archivo), { recursive: true });
   await fs.writeFile(archivo, html);
-  sitemap.push([ruta, prioridad, lastmod]);
+  if (sitemap) sitemap.push([ruta, prioridad, lastmod]); // sin sitemap: página «noindex», no se pide a Google
 }
 
 async function main() {
@@ -374,8 +375,8 @@ async function main() {
         ruta: rutaCombo(p, s), titulo: `Licitaciones ${frase}`,
         descripcion: `${numero.format(ab.length)} licitaciones ${frase} abiertas: plazos, presupuestos, organismos y adjudicatarios. Actualizado a diario.`,
         migas: [['Inicio', '/'], ['Licitaciones', '/licitaciones/'], [nombre, rutaProv(p)], [s.n, rutaCombo(p, s)]],
-        cuerpo, actualizado,
-      }), sitemap, '0.6');
+        cuerpo, actualizado, noindex: !indexable('combo', ab.length),
+      }), indexable('combo', ab.length) ? sitemap : null, '0.6');
     }
   }
 
@@ -928,9 +929,10 @@ async function main() {
   // --- sitemaps (máximo 50.000 direcciones por archivo)
   const hoy = AHORA.toISOString().slice(0, 10);
   const urls = [['/', '1.0'], ...sitemap, ['/sobre', '0.5'], ['/anunciate', '0.3'], ['/aviso-legal', '0.2'], ['/privacidad', '0.2'], ['/cookies', '0.2']];
-  const urlsEmpresas = [...empresas.keys()].sort().map((s) => [`/empresa/${s}`, '0.4']);
-  const urlsOrganismos = [...organismos.keys()].sort().map((s) => [`/organismo/${s}`, '0.5']);
-  const urlsMunicipios = [...municipios.keys()].sort().map((s) => [`/municipio/${s}`, '0.6']);
+  // Solo las que tienen contenido suficiente (lib/indexar.mjs); las demás existen pero no se piden a Google
+  const urlsEmpresas = [...empresas].filter(([, e]) => indexable('empresa', e.n)).map(([s]) => s).sort().map((s) => [`/empresa/${s}`, '0.4']);
+  const urlsOrganismos = [...organismos].filter(([, o]) => indexable('organismo', o.n)).map(([s]) => s).sort().map((s) => [`/organismo/${s}`, '0.5']);
+  const urlsMunicipios = [...municipios].filter(([, m]) => indexable('municipio', m.n)).map(([s]) => s).sort().map((s) => [`/municipio/${s}`, '0.6']);
   const xml = (lista) => `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${lista.map(([r, pr, lm]) => `  <url><loc>${SITIO}${encodeURI(r)}</loc><lastmod>${/^\d{4}-\d{2}-\d{2}/.test(lm || '') ? lm.slice(0, 10) : hoy}</lastmod><priority>${pr}</priority></url>`).join('\n')}
@@ -947,7 +949,7 @@ ${archivos.map(([f]) => `  <sitemap><loc>${SITIO}/${f}</loc><lastmod>${hoy}</las
 </sitemapindex>
 `);
 
-  console.log(`Páginas generadas: ${sitemap.length} (${codProv.length} provincias, ${comunidades.length} comunidades, ${combos.size} sector+provincia, ${fichas.length} fichas de licitación; adjudicaciones desde ${adjDesde}; ${empresas.size} empresas, ${organismos.size} organismos y ${municipios.size} municipios en el sitemap) en ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  console.log(`Páginas generadas: ${sitemap.length} (${codProv.length} provincias, ${comunidades.length} comunidades, ${combos.size} sector+provincia, ${fichas.length} fichas de licitación; adjudicaciones desde ${adjDesde}; ${urlsEmpresas.length} de ${empresas.size} empresas, ${urlsOrganismos.length} de ${organismos.size} organismos y ${urlsMunicipios.length} de ${municipios.size} municipios en el sitemap) en ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
